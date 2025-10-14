@@ -6,24 +6,20 @@ including bias calculation, error distribution analysis, and visualization.
 """
 
 # Standard library imports
-import logging
 import math
 import re
-from typing import Dict, Any, Optional
+from typing import Optional
 
 # Third-party imports
 import pandas as pd
-import numpy as np
 import plotly.graph_objects as go
 import plotly.express as px
 from plotly.subplots import make_subplots
 from IPython.display import Image, display
 
 # PySpark imports
-from pyspark.sql import SparkSession, DataFrame, Window
+from pyspark.sql import SparkSession, DataFrame
 import pyspark.sql.functions as F
-import pyspark.sql.types as T
-from pyspark.sql.functions import pandas_udf
 
 # Constants
 PLOT_TEMPLATE = "plotly_white"

@@ -6,7 +6,7 @@ Modular wrapper for Prophet-based demand forecasting with lifecycle-aware config
 
 # Standard library imports
 import time
-from typing import Dict, Any, Optional
+from typing import Dict, Any
 
 # Third-party imports
 import pandas as pd
@@ -16,7 +16,6 @@ from prophet import Prophet
 # PySpark imports
 from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql import functions as F
-from pyspark.sql.window import Window
 
 # Local imports
 from functions_library.supabase_connection import SupabaseClient

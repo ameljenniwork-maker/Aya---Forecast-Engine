@@ -9,7 +9,6 @@ import time
 from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql import functions as F
 from pyspark.sql.window import Window
-import pyspark.sql.types as T
 
 import configuration as CONFIG
 from functions_library.supabase_connection import SupabaseClient
