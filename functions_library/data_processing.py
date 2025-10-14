@@ -98,10 +98,21 @@ def generate_categories(sales_df: DataFrame, products_df: DataFrame) -> DataFram
         )
         logger.info("    [OK] Column mapping completed")
         
-        # Step 2: Create day_in_stock as incremental row number per product
+        # Step 2: Create day_in_stock relative to first sale date
         logger.info("    Creating day_in_stock column...")
-        window_spec = Window.partitionBy("product_id").orderBy("date")
-        sales_df = sales_df.withColumn("day_in_stock", F.row_number().over(window_spec))
+        
+        # First, find the first sale date for each product
+        first_sale_window = Window.partitionBy("product_id").orderBy("date")
+        sales_df = sales_df.withColumn("first_sale_date", 
+            F.min(F.when(F.col("sales_units") > 0, F.col("date"))).over(first_sale_window))
+        
+        # Calculate day_in_stock as days since first sale
+        sales_df = sales_df.withColumn("day_in_stock", 
+            F.datediff(F.col("date"), F.col("first_sale_date")))
+        
+        # Drop the temporary column
+        sales_df = sales_df.drop("first_sale_date")
+        
         logger.info("    [OK] Day in stock calculation completed")
         
         # Step 3: Create sales categories using configuration
