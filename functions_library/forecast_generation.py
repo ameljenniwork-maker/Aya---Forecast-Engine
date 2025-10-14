@@ -179,6 +179,18 @@ def filter_non_eligible_categories(processed_data: DataFrame, forecast_start_dat
     logger.info(f"FILTERING: Getting non-eligible products on {CONFIG.HISTORY_END_DATE}...")
     qualification_start = time.time()
     
+    # Debug: Check what data exists on history end date before filtering
+    history_end_data = processed_subset.filter(F.col("date") == F.lit(CONFIG.HISTORY_END_DATE))
+    history_end_count = history_end_data.count()
+    logger.info(f"FILTERING: Data count on {CONFIG.HISTORY_END_DATE}: {history_end_count}")
+    
+    if history_end_count > 0:
+        # Check what categories exist
+        age_cats = history_end_data.select("age_category").distinct().collect()
+        sales_cats = history_end_data.select("sales_category").distinct().collect()
+        logger.info(f"FILTERING: Available age categories: {[row.age_category for row in age_cats]}")
+        logger.info(f"FILTERING: Available sales categories: {[row.sales_category for row in sales_cats]}")
+    
     # Get products that are non-eligible on the history end date
     non_eligible_products = (processed_subset
         .filter(F.col("date") == F.lit(CONFIG.HISTORY_END_DATE))
