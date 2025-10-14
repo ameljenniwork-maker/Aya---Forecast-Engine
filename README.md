@@ -1,104 +1,58 @@
-## Aya Forecast - Initial Setup
+# Aya Forecast Engine
+
+A Prophet-based demand forecasting system with lifecycle-aware configurations and calendar effects.
+
+## Quick Start
 
 ### Prerequisites
 - Python 3.10+
-- Git (optional)
-- Java JDK 8 or 11 (required for `pyspark`)
-  - Windows: set `JAVA_HOME` and add `%JAVA_HOME%\bin` to PATH
-  - Linux: ensure `java -version` works
-- Build tools for Prophet
-  - Windows: Microsoft C++ Build Tools
-  - Linux: `gcc g++ make`
+- Java JDK 8/11 (for PySpark)
+- Microsoft C++ Build Tools (Windows) or `gcc g++ make` (Linux)
 
-### 1) Clone or open the project
+### Setup
 ```bash
-# if not already in the folder
-cd "Aya - Forecast"
-```
-
-### 2) Create and activate a virtual environment
-```bash
-# Windows (PowerShell)
+# 1. Create virtual environment
 python -m venv .venv
-.venv\Scripts\Activate.ps1
+.venv\Scripts\Activate.ps1  # Windows
+# source .venv/bin/activate  # Linux
 
-# Linux/macOS
-python -m venv .venv
-source .venv/bin/activate
-```
-
-### 3) Install Python dependencies
-```bash
-pip install --upgrade pip
+# 2. Install dependencies
 pip install -r requirements.txt
+
+# 3. Configure Supabase credentials in configuration.py
+# Update SUPABASE_URL, SUPABASE_ANON_KEY, TEST_USER_EMAIL, TEST_USER_PASSWORD
 ```
 
-### 4) Configure environment variables
-Create a `.env` file in the project root with your Supabase and DB settings:
+### Usage
 ```bash
-SUPABASE_URL=your_supabase_url
-SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
-SUPABASE_DB_URL=postgresql://user:password@host:5432/dbname
+# Run the forecast engine
+python forecast_engine.py
 
-# Optional runtime params
-FORECAST_START_DATE=2025-10-10
-FORECAST_HORIZON=14
+# Run evaluation notebook
+jupyter notebook evaluate_forecast.ipynb
 ```
 
-Notes:
-- `SUPABASE_DB_URL` is used for fast bulk IO via SQLAlchemy.
-- Keep the Service Role Key secure; never commit `.env` to source control.
+## Architecture
 
-### 5) Validate Java for Spark
-```bash
-java -version
-```
-If this fails, install JDK 8/11 and set `JAVA_HOME`.
+- **`forecast_engine.py`**: Main pipeline orchestrator
+- **`functions_library/`**: Core modules
+  - `data_processing.py`: Data aggregation and feature generation
+  - `forecast_generation.py`: Prophet/Croston forecasting
+  - `forecast_evaluation.py`: Performance analysis and visualization
+  - `supabase_connection.py`: Database connectivity
+- **`evaluate_forecast.ipynb`**: Interactive analysis notebook
 
-### 6) Run notebooks (dev workflow)
-Open `1_process.ipynb` and `2_forecast.ipynb` for exploration and development.
+## Features
 
-### 7) Next: Production runner (outline)
-Create a small runner that reads from Supabase, executes the forecast, and writes back.
-Suggested files:
-- `config.py`: constants and env loading
-- `data_io.py`: read/write with SQLAlchemy
-- `forecast_engine.py`: orchestrates read → forecast → write with logging
+- **Lifecycle-aware forecasting**: Different models for product maturity stages
+- **Calendar effects**: Islamic holidays, salary periods, promotions
+- **Dual forecasting methods**: Prophet for complex patterns, Croston for sparse data
+- **Performance evaluation**: Bias analysis, error distribution, category performance
 
-Example snippets
-```python
-# data_io.py (example)
-import os
-import pandas as pd
-from sqlalchemy import create_engine
+## Configuration
 
-def get_engine():
-    return create_engine(os.environ["SUPABASE_DB_URL"])  # postgres URL
-
-def read_training_data(forecast_start: str) -> pd.DataFrame:
-    sql = """
-    select sku,
-           date::date as date,
-           sales_units,
-           on_forecast_age_sales_category,
-           on_forecast_age_category,
-           on_forecast_sales_category,
-           marketing_cost, rank_score, conversion_rate,
-           is_salary, is_ramadan, is_friday, is_promotion
-    from public.daily_product_metrics
-    where date <= %(forecast_start)s
-    """
-    return pd.read_sql(sql, get_engine(), params={"forecast_start": forecast_start})
-
-def write_forecast(df: pd.DataFrame):
-    df.to_sql("daily_product_forecasts", get_engine(), schema="public", if_exists="append", index=False)
-```
-
-### 8) Scheduling (when ready)
-- Windows Task Scheduler: run `python forecast_engine.py` daily after the Supabase sync.
-- Linux cron/systemd or containerized job.
-
-### Troubleshooting
-- Prophet build errors on Windows: install Microsoft C++ Build Tools, restart shell.
-- Spark errors about Java: ensure `JAVA_HOME` and PATH are set to JDK.
-- Postgres SSL/auth issues: verify `SUPABASE_DB_URL` format and network access.
+Key settings in `configuration.py`:
+- `HISTORY_START_DATE`: Start of historical data
+- `HISTORY_END_DATE`: End of historical data  
+- `FORECAST_HORIZON`: Days to forecast ahead
+- `AGE_SALES_CATEGORY_CONFIG`: Lifecycle-specific parameters
