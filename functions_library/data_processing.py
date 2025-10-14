@@ -114,31 +114,26 @@ def generate_categories(sales_df: DataFrame, products_df: DataFrame) -> DataFram
         
         # Step 4: Create age categories using configuration
         logger.info("    Creating age categories...")
-        age_conditions = []
-        for category, config in CONFIG.AGE_CATEGORY_BINS.items():
-            if "special" in config and config["special"] == "before_first_sales":
-                age_conditions.append(F.when(F.col("recent_sales_units") == 0, category))
-            elif "max_days" in config:
-                if config["max_days"] == float('inf'):
-                    age_conditions.append(F.when(F.col("day_in_stock") > 30, category))
-                else:
-                    # Fix the range logic to avoid gaps
-                    if config["max_days"] == 7:
-                        age_conditions.append(F.when(
-                            (F.col("day_in_stock") >= 1) & (F.col("day_in_stock") <= 7), 
-                            category
-                        ))
-                    else:
-                        age_conditions.append(F.when(
-                            (F.col("day_in_stock") > 7) & (F.col("day_in_stock") <= config["max_days"]), 
-                            category
-                        ))
         
+        # Build conditions from configuration
+        age_conditions = []
+        for category, max_days in CONFIG.AGE_CATEGORY_DAYS.items():
+            if max_days == 0:
+                # Draft category: before first sales (recent_sales_units == 0)
+                age_conditions.append(F.when(F.col("recent_sales_units") == 0, category))
+            elif max_days == float('inf'):
+                # Mature category: > 30 days in stock
+                age_conditions.append(F.when(F.col("day_in_stock") > 30, category))
+            else:
+                # Other categories: <= max_days in stock
+                age_conditions.append(F.when(F.col("day_in_stock") <= max_days, category))
+        
+        # Apply conditions in order (most specific first)
         sales_df = sales_df.withColumn(
             "age_category",
             F.coalesce(*age_conditions, F.lit("Unknown"))
         )
-        logger.info("    [OK] Age categories created")
+        logger.info("    [OK] Age categories created using configuration")
         
         # Create sales categories using configuration
         logger.info("    Creating cumulative sales and first sales date...")
@@ -154,44 +149,31 @@ def generate_categories(sales_df: DataFrame, products_df: DataFrame) -> DataFram
         )
         logger.info("    [OK] Cumulative sales and first sales date calculated")
         
-        sales_conditions = []
-        for category, config in CONFIG.SALES_CATEGORY_BINS.items():
-            if "special" in config and config["special"] == "before_first_sales":
-                sales_conditions.append(F.when(
-                    (F.col("first_positive_sales_date").isNull()) | 
-                    (F.col("date") < F.col("first_positive_sales_date")), 
-                    category
-                ))
-            elif "max_sales" in config:
-                sales_conditions.append(F.when(
-                    (F.col("first_positive_sales_date").isNotNull()) & 
-                    (F.col("date") >= F.col("first_positive_sales_date")) &
-                    (F.col("recent_sales_units") == config["max_sales"]), 
-                    category
-                ))
-            elif "max_multiplier" in config:
-                if config["max_multiplier"] == float('inf'):
-                    sales_conditions.append(F.when(
-                        (F.col("first_positive_sales_date").isNotNull()) & 
-                        (F.col("date") >= F.col("first_positive_sales_date")) &
-                        (F.col("recent_sales_units") > 100), 
-                        category
-                    ))
-                else:
-                    min_sales = (config["max_multiplier"] - 1) * 10 + 1 if config["max_multiplier"] > 1 else 1
-                    max_sales = config["max_multiplier"] * 10
-                    sales_conditions.append(F.when(
-                        (F.col("first_positive_sales_date").isNotNull()) & 
-                        (F.col("date") >= F.col("first_positive_sales_date")) &
-                        (F.col("recent_sales_units") >= min_sales) & (F.col("recent_sales_units") <= max_sales), 
-                        category
-                    ))
+        # Create sales categories using configuration
+        logger.info("    Creating sales categories using configuration...")
         
+        # Build conditions from configuration
+        sales_conditions = []
+        for category, multiplier in CONFIG.SALES_CATEGORY_MULTIPLIERS.items():
+            if category == "00| Draft":
+                # Draft category: before first sales (day_in_stock  < 0 or no sales yet)
+                sales_conditions.append(F.when(F.col("day_in_stock") <= 0, category))
+            elif category == "01| Dead":
+                # Dead category: sales <= 0 (but not Draft)
+                sales_conditions.append(F.when(F.col("recent_sales_units") <= 0, category))
+            elif multiplier == float('inf'):
+                # High Winning category: >= 10 * RECENT_SALES_UNITS_WINDOW
+                sales_conditions.append(F.when(F.col("recent_sales_units") >= 10 * CONFIG.RECENT_SALES_UNITS_WINDOW, category))
+            else:
+                # Other categories: < multiplier * RECENT_SALES_UNITS_WINDOW
+                sales_conditions.append(F.when(F.col("recent_sales_units") < multiplier * CONFIG.RECENT_SALES_UNITS_WINDOW, category))
+        
+        # Apply conditions in order (most specific first)
         sales_df = sales_df.withColumn(
             "sales_category",
             F.coalesce(*sales_conditions, F.lit("Unknown"))
         )
-        logger.info("    [OK] Sales categories created")
+        logger.info("    [OK] Sales categories created using configuration")
         
         # Create summarized sales categories using configuration
         logger.info("    Creating summarized sales categories...")

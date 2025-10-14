@@ -60,7 +60,7 @@ Key settings in `configuration.py`:
 ## Monitoring
 
 ### Log Files
-- **Location**: `logs/forecast_run{RUN_ID}_YYYYMMDD_HHMMSS.log`
+- **Location**: `logs/run_{RUN_ID}_YYYYMMDD_HHMMSS.log`
 - **Monitor for errors**: Check for `ERROR` or `WARNING` messages
 - **Performance tracking**: Review step timing and data processing metrics
 - **Debugging**: Detailed execution flow and Spark task information

@@ -47,38 +47,41 @@ _history_end_dt = datetime.strptime(HISTORY_END_DATE, "%Y-%m-%d").date()
 FORECAST_START_DATE = (_history_end_dt + timedelta(days=1)).strftime("%Y-%m-%d")
 
 
-
-# Rolling sales window configuration
-RECENT_SALES_UNITS_WINDOW = 14
-
 # Salary period configuration
 SALARY_START_DATE = 25  # 25th of month
 SALARY_END_DATE = 4     # 4th of next month
 
-# Age category configuration
-AGE_CATEGORY_BINS = {
-    "00| Draft": {"special": "before_first_sales"},
-    "01| New": {"max_days": 7},
-    "02| Launch": {"max_days": 14},
-    "03| Growth": {"max_days": 30},
-    "04| Mature": {"max_days": float('inf')}
+
+# Rolling sales window configuration
+RECENT_SALES_UNITS_WINDOW = 14
+# Sales category configuration - simple multipliers based on RECENT_SALES_UNITS_WINDOW
+# Categories are assigned based on recent_sales_units (sum of sales over the window period)
+SALES_CATEGORY_MULTIPLIERS = {
+    "00| Draft": 0,          # Before first sales (day_in_stock = 0 or no sales yet)
+    "01| Dead": 0,           # <= 0 sales (no recent sales)
+    "02| Very Low": 1,       # < 1 * RECENT_SALES_UNITS_WINDOW (e.g., < 14 sales)
+    "03| Low": 2,            # < 2 * RECENT_SALES_UNITS_WINDOW (e.g., < 28 sales)
+    "04| Alive": 4,          # < 4 * RECENT_SALES_UNITS_WINDOW (e.g., < 56 sales)
+    "05| Medium": 6,         # < 6 * RECENT_SALES_UNITS_WINDOW (e.g., < 84 sales)
+    "06| Winning": 10,       # < 10 * RECENT_SALES_UNITS_WINDOW (e.g., < 140 sales)
+    "07| High Winning": float('inf')  # >= 10 * RECENT_SALES_UNITS_WINDOW (e.g., >= 140 sales)
 }
 
-# Sales category configuration
-SALES_CATEGORY_BINS = {
-    "00| Draft": {"special": "before_first_sales"},
-    "01| Dead": {"max_sales": 0},
-    "02| Very Low": {"max_multiplier": 1},
-    "03| Low": {"max_multiplier": 2},
-    "04| Alive": {"max_multiplier": 4},
-    "05| Medium": {"max_multiplier": 6},
-    "06| Winning": {"max_multiplier": 10},
-    "07| High Winning": {"max_multiplier": float('inf')}
+
+# Age category configuration - simple day ranges based on day_in_stock
+# Categories are assigned based on how many days the product has been in stock
+AGE_CATEGORY_DAYS = {
+    "00| Draft": 0,          # Before first sales (day_in_stock = 0 or no sales yet)
+    "01| New": 7,            # <= 7 days in stock
+    "02| Launch": 14,        # <= 14 days in stock
+    "03| Growth": 30,        # <= 30 days in stock
+    "04| Mature": float('inf')  # > 30 days in stock
 }
+
+
 
 # Sales category summarization
 SALES_CATEGORY_SUMMARY = {
-    "00| Draft": ["00| Draft"],
     "01| Low": ["01| Dead", "02| Very Low", "03| Low"],
     "02| Medium": ["04| Alive", "05| Medium"],
     "03| High": ["06| Winning", "07| High Winning"]

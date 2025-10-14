@@ -48,9 +48,9 @@ def setup_logger(name: str = "aya_forecast", level: str = LOG_LEVEL, run_id: int
     # Create file handler
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
     if run_id is not None:
-        log_filename = f"logs/forecast_run{run_id}_{timestamp}.log"
+        log_filename = f"logs/run_{run_id}_{timestamp}.log"
     else:
-        log_filename = f"logs/forecast_{timestamp}.log"
+        log_filename = f"logs/run_{timestamp}.log"
     os.makedirs("logs", exist_ok=True)
     file_handler = logging.FileHandler(log_filename)
     file_handler.setLevel(getattr(logging, level))
