@@ -98,21 +98,10 @@ def generate_categories(sales_df: DataFrame, products_df: DataFrame) -> DataFram
         )
         logger.info("    [OK] Column mapping completed")
         
-        # Step 2: Create day_in_stock relative to first sale date
+        # Step 2: Create day_in_stock as row number per product
         logger.info("    Creating day_in_stock column...")
-        
-        # First, find the first sale date for each product
-        first_sale_window = Window.partitionBy("product_id").orderBy("date")
-        sales_df = sales_df.withColumn("first_sale_date", 
-            F.min(F.when(F.col("sales_units") > 0, F.col("date"))).over(first_sale_window))
-        
-        # Calculate day_in_stock as days since first sale
-        sales_df = sales_df.withColumn("day_in_stock", 
-            F.datediff(F.col("date"), F.col("first_sale_date")))
-        
-        # Drop the temporary column
-        sales_df = sales_df.drop("first_sale_date")
-        
+        window_spec = Window.partitionBy("product_id").orderBy("date")
+        sales_df = sales_df.withColumn("day_in_stock", F.row_number().over(window_spec))
         logger.info("    [OK] Day in stock calculation completed")
         
         # Step 3: Create sales categories using configuration
@@ -128,10 +117,10 @@ def generate_categories(sales_df: DataFrame, products_df: DataFrame) -> DataFram
         
         # Simple age category logic
         sales_df = sales_df.withColumn("age_category",
-            F.when(F.col("day_in_stock") == 0, "00| Draft")
-            .when(F.col("day_in_stock") <= 7, "01| New")
-            .when(F.col("day_in_stock") <= 14, "02| Launch")
-            .when(F.col("day_in_stock") <= 30, "03| Growth")
+            F.when(F.col("day_in_stock") == 1, "00| Draft")
+            .when(F.col("day_in_stock") <= 8, "01| New")
+            .when(F.col("day_in_stock") <= 15, "02| Launch")
+            .when(F.col("day_in_stock") <= 31, "03| Growth")
             .otherwise("04| Mature")
         )
         logger.info("    [OK] Age categories created using simple logic")
@@ -155,8 +144,8 @@ def generate_categories(sales_df: DataFrame, products_df: DataFrame) -> DataFram
         
         # Simple sales category logic
         sales_df = sales_df.withColumn("sales_category",
-            F.when(F.col("day_in_stock") <= 0, "00| Draft")
-            .when((F.col("day_in_stock") > 0) & (F.col("recent_sales_units") == 0), "01| Dead")
+            F.when(F.col("day_in_stock") == 1, "00| Draft")
+            .when((F.col("day_in_stock") > 1) & (F.col("recent_sales_units") == 0), "01| Dead")
             .when(F.col("recent_sales_units") < 14, "02| Very Low")
             .when(F.col("recent_sales_units") < 28, "03| Low")
             .when(F.col("recent_sales_units") < 56, "04| Alive")
