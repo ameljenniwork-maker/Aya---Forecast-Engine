@@ -63,8 +63,7 @@ Create a small runner that reads from Supabase, executes the forecast, and write
 Suggested files:
 - `config.py`: constants and env loading
 - `data_io.py`: read/write with SQLAlchemy
-- `forecast_engine.py`: wraps your Prophet/Croston logic
-- `main.py`: orchestrates read → forecast → write with logging
+- `forecast_engine.py`: orchestrates read → forecast → write with logging
 
 Example snippets
 ```python
@@ -96,7 +95,7 @@ def write_forecast(df: pd.DataFrame):
 ```
 
 ### 8) Scheduling (when ready)
-- Windows Task Scheduler: run `python main.py` daily after the Supabase sync.
+- Windows Task Scheduler: run `python forecast_engine.py` daily after the Supabase sync.
 - Linux cron/systemd or containerized job.
 
 ### Troubleshooting
