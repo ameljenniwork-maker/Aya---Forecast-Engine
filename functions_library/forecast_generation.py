@@ -140,8 +140,15 @@ def filter_non_eligible_categories(processed_data: DataFrame, forecast_start_dat
     # Step 2: Filter to historical data only (up to forecast_start_date - 1)
     date_filtering_start = time.time()
     history_end_date = F.date_sub(F.lit(forecast_start_date), 1)
-    logger.info(f"Filtering to historical data only (up to {history_end_date})")
-    processed_subset = processed_subset.filter(F.col("date") <= history_end_date)
+    logger.info(f"Configured history end date: {history_end_date}")
+    
+    # Get the actual last available date in the data
+    actual_last_date = processed_subset.select(F.max("date")).collect()[0][0]
+    logger.info(f"Actual last date in data: {actual_last_date}")
+    
+    # Use the actual last date instead of configured history_end_date
+    logger.info(f"Using actual data range up to: {actual_last_date}")
+    processed_subset = processed_subset.filter(F.col("date") <= actual_last_date)
     date_filtering_time = time.time() - date_filtering_start
     logger.info(f"Date filtering: {date_filtering_time:.2f} seconds")
     
