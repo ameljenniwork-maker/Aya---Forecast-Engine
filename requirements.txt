@@ -1,0 +1,35 @@
+# Core data libs
+pandas>=2.1,<2.3          # Data manipulation and analysis in forecast_demand.py
+numpy>=1.24,<2.1           # Numerical operations and Croston method implementation
+pyarrow>=16,<18            # Arrow optimization for Spark DataFrame conversions
+
+# Forecasting
+prophet>=1.1.5,<1.2        # Core time series forecasting library
+cmdstanpy>=1.1,<1.2        # Stan backend required by Prophet for Bayesian inference
+
+# Spark (requires system Java/JDK installed separately)
+# NOTE: Spark requires Java 8, 11, or 17 to be installed on the system
+# Download from: https://adoptium.net/ or https://www.oracle.com/java/technologies/downloads/
+pyspark>=3.5,<3.6          # Distributed data processing and Spark SQL operations
+
+# Cloud & IO
+SQLAlchemy>=2.0,<2.1       # Database ORM for PostgreSQL connections in data_interface.py
+psycopg2-binary>=2.9,<3    # PostgreSQL adapter for SQLAlchemy database connections
+supabase>=2.4,<3           # Supabase client for data retrieval and storage
+python-dotenv>=1.0,<2      # Environment variable loading in configuration.py
+boto3>=1.34,<2             # AWS SDK for S3-compatible storage operations
+
+# Visualization & Analysis
+plotly>=5.17,<6            # Interactive plotting for forecast evaluation
+matplotlib>=3.7,<4         # Static plotting and visualization
+seaborn>=0.12,<1           # Statistical data visualization
+
+# Jupyter & Development
+ipykernel>=6.25,<7         # Jupyter kernel for notebook execution
+jupyter>=1.0,<2            # Jupyter notebook environment
+notebook>=7.0,<8           # Jupyter notebook server
+nbformat>=4.2.0,<6         # Notebook format support for plotly rendering
+
+# Scientific Computing
+scipy>=1.11,<2             # Scientific computing and statistical functions
+scikit-learn>=1.3,<2       # Machine learning and statistical modeling
