@@ -94,7 +94,7 @@ SALES_CATEGORY_SUMMARY = {
 # Categories that are NOT eligible for forecasting
 NON_ELIGIBLE_CATEGORIES = {
     "age_categories": [
-        "00| Draft", "01| New"  # Products that haven't been launched yet
+        "01| New"  # Products in their first week
     ],
     "sales_categories": [
         "01| Dead"   # Products with no recent sales

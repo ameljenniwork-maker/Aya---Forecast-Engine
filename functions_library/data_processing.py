@@ -117,10 +117,9 @@ def generate_categories(sales_df: DataFrame, products_df: DataFrame) -> DataFram
         
         # Simple age category logic
         sales_df = sales_df.withColumn("age_category",
-            F.when(F.col("day_in_stock") == 1, "00| Draft")
-            .when(F.col("day_in_stock") <= 8, "01| New")
-            .when(F.col("day_in_stock") <= 15, "02| Launch")
-            .when(F.col("day_in_stock") <= 31, "03| Growth")
+            F.when(F.col("day_in_stock") <= 7, "01| New")
+            .when(F.col("day_in_stock") <= 14, "02| Launch")
+            .when(F.col("day_in_stock") <= 30, "03| Growth")
             .otherwise("04| Mature")
         )
         logger.info("    [OK] Age categories created using simple logic")
@@ -144,8 +143,7 @@ def generate_categories(sales_df: DataFrame, products_df: DataFrame) -> DataFram
         
         # Simple sales category logic
         sales_df = sales_df.withColumn("sales_category",
-            F.when(F.col("day_in_stock") == 1, "00| Draft")
-            .when((F.col("day_in_stock") > 1) & (F.col("recent_sales_units") == 0), "01| Dead")
+            F.when(F.col("recent_sales_units") == 0, "01| Dead")
             .when(F.col("recent_sales_units") < 14, "02| Very Low")
             .when(F.col("recent_sales_units") < 28, "03| Low")
             .when(F.col("recent_sales_units") < 56, "04| Alive")
@@ -155,17 +153,11 @@ def generate_categories(sales_df: DataFrame, products_df: DataFrame) -> DataFram
         )
         logger.info("    [OK] Sales categories created using simple logic")
         
-        # Create summarized sales categories using configuration
+        # Create summarized sales categories by concatenating age and sales categories
         logger.info("    Creating summarized sales categories...")
-        summary_conditions = []
-        for summary_cat, sub_categories in CONFIG.SALES_CATEGORY_SUMMARY.items():
-            summary_conditions.append(
-                F.when(F.col("sales_category").isin(sub_categories), summary_cat)
-            )
-        
         sales_df = sales_df.withColumn(
             "summarized_sales_category",
-            F.coalesce(*summary_conditions, F.lit("Unknown"))
+            F.concat_ws("_", F.col("age_category"), F.col("sales_category"))
         )
         logger.info("    [OK] Summarized sales categories created")
         

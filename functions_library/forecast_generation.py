@@ -175,17 +175,35 @@ def filter_non_eligible_categories(processed_data: DataFrame, forecast_start_dat
     date_range_time = time.time() - date_range_start
     logger.info(f"FILTERING: Date range: {date_range[0]} to {date_range[1]} (took {date_range_time:.2f}s)")
     
-    # Simple filtering: get products on the configured history end date with eligible categories
-    logger.info(f"FILTERING: Starting on_forecast_qualification filtering...")
+    # Step 1: Get products that are non-eligible on history end date
+    logger.info(f"FILTERING: Getting non-eligible products on {CONFIG.HISTORY_END_DATE}...")
     qualification_start = time.time()
     
-    # Use configured history end date for category filtering
-    logger.info(f"FILTERING: Using configured history end date: {CONFIG.HISTORY_END_DATE}")
-    
-    on_forecast_qualification = (processed_subset
+    # Get products that are non-eligible on the history end date
+    non_eligible_products = (processed_subset
         .filter(F.col("date") == F.lit(CONFIG.HISTORY_END_DATE))
-        .filter(~F.col("age_category").isin(non_eligible_age))
-        .filter(~F.col("sales_category").isin(non_eligible_sales))
+        .filter(
+            F.col("age_category").isin(non_eligible_age) | 
+            F.col("sales_category").isin(non_eligible_sales)
+        )
+        .select("product_id")
+        .distinct()
+    )
+    
+    non_eligible_count = non_eligible_products.count()
+    logger.info(f"FILTERING: Found {non_eligible_count} non-eligible products on {CONFIG.HISTORY_END_DATE}")
+    
+    # Step 2: Left anti join to exclude non-eligible products from the full dataset
+    logger.info(f"FILTERING: Excluding non-eligible products from full dataset...")
+    qualified_data = processed_subset.join(
+        non_eligible_products, 
+        on="product_id", 
+        how="left_anti"
+    )
+    
+    # Step 3: Get qualification info for remaining products on history end date
+    on_forecast_qualification = (qualified_data
+        .filter(F.col("date") == F.lit(CONFIG.HISTORY_END_DATE))
         .select("product_id", "age_sales_category", "sales_category", "age_category", "style")
         .withColumnRenamed("age_sales_category", "on_forecast_age_sales_category")
         .withColumnRenamed("sales_category", "on_forecast_sales_category") 
@@ -228,18 +246,37 @@ def filter_non_eligible_categories(processed_data: DataFrame, forecast_start_dat
         # Check what categories exist in the data on configured history end date
         last_date_data = processed_subset.filter(F.col("date") == F.lit(CONFIG.HISTORY_END_DATE))
         last_date_count = last_date_data.count()
+        logger.warning(f"  Data count on {CONFIG.HISTORY_END_DATE}: {last_date_count}")
+        
         if last_date_count > 0:
             age_categories = last_date_data.select("age_category").distinct().collect()
             sales_categories = last_date_data.select("sales_category").distinct().collect()
             logger.warning(f"  Available age categories: {[row.age_category for row in age_categories]}")
             logger.warning(f"  Available sales categories: {[row.sales_category for row in sales_categories]}")
+            
+            # Check specific non-eligible counts
+            age_filtered = last_date_data.filter(F.col("age_category").isin(non_eligible_age)).count()
+            sales_filtered = last_date_data.filter(F.col("sales_category").isin(non_eligible_sales)).count()
+            logger.warning(f"  Products with non-eligible age categories: {age_filtered}")
+            logger.warning(f"  Products with non-eligible sales categories: {sales_filtered}")
+            
+            # Debug: Check recent_sales_units distribution
+            recent_sales_stats = last_date_data.select(
+                F.min("recent_sales_units").alias("min_recent_sales"),
+                F.max("recent_sales_units").alias("max_recent_sales"),
+                F.avg("recent_sales_units").alias("avg_recent_sales")
+            ).collect()[0]
+            logger.warning(f"  Recent sales units stats: min={recent_sales_stats.min_recent_sales}, max={recent_sales_stats.max_recent_sales}, avg={recent_sales_stats.avg_recent_sales:.2f}")
+            
+            # Check how many products have recent_sales_units = 0
+            zero_sales_count = last_date_data.filter(F.col("recent_sales_units") == 0).count()
+            logger.warning(f"  Products with recent_sales_units = 0: {zero_sales_count}")
     product_filtering_time = time.time() - product_filtering_start
     logger.info(f"Product filtering: {product_filtering_time:.2f} seconds")
     
-    # Step 3: Join back to subset to get all historical data for qualified products
+    # Step 3: Use qualified_data (already filtered) for historical data
     joining_start = time.time()
-    # Use qualified_products (which already has all the data) instead of joining back
-    qualified_data = qualified_products
+    # qualified_data already contains only eligible products with all their historical data
     joining_time = time.time() - joining_start
     logger.info(f"Data joining: {joining_time:.2f} seconds")
     
