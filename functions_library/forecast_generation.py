@@ -24,7 +24,7 @@ from functions_library.logger_configuration import get_logger
 # Module-level logger
 logger = get_logger(__name__)
 
-def forecast_demand(processed_data: DataFrame, spark: SparkSession = None) -> DataFrame:
+def forecast_demand(processed_data: DataFrame, spark: SparkSession = None, run_id: int = None) -> DataFrame:
     """
     Main forecasting pipeline - takes processed data as input
     
@@ -64,12 +64,16 @@ def forecast_demand(processed_data: DataFrame, spark: SparkSession = None) -> Da
         filtering_time = time.time() - filtering_start
         logger.info(f"    [OK] Non-eligible category filtering: {filtering_time:.2f} seconds")
         
-        # Step 2: Generate run_id
-        logger.info("  [STEP 2] Generating run ID...")
+        # Step 2: Use provided run_id or generate one
+        logger.info("  [STEP 2] Using run ID...")
         run_id_start = time.time()
-        run_id = int(time.time())
+        if run_id is None:
+            run_id = int(time.time())
+            logger.info(f"    [INFO] No run_id provided, using timestamp: {run_id}")
+        else:
+            logger.info(f"    [INFO] Using provided run_id: {run_id}")
         run_id_time = time.time() - run_id_start
-        logger.info(f"    [OK] Run ID generation: {run_id_time:.2f} seconds")
+        logger.info(f"    [OK] Run ID setup: {run_id_time:.2f} seconds")
         
         # Step 3: Store forecast configuration (commented out for now)
         logger.info("  [STEP 3] Storing configuration...")

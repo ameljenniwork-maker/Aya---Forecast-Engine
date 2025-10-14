@@ -57,6 +57,29 @@ Key settings in `configuration.py`:
 - `FORECAST_HORIZON`: Days to forecast ahead
 - `AGE_SALES_CATEGORY_CONFIG`: Lifecycle-specific parameters
 
+## Category Definitions
+
+### Age Categories (based on days in stock)
+- **00| Draft**: `day_in_stock = 0` (before first sales)
+- **01| New**: `day_in_stock <= 7` (first week)
+- **02| Launch**: `day_in_stock <= 14` (first two weeks)
+- **03| Growth**: `day_in_stock <= 30` (first month)
+- **04| Mature**: `day_in_stock > 30` (beyond first month)
+
+### Sales Categories (based on recent 14-day sales)
+- **00| Draft**: `day_in_stock <= 0` (before first sales)
+- **01| Dead**: `day_in_stock > 0 AND recent_sales_units = 0` (launched but no recent sales)
+- **02| Very Low**: `recent_sales_units < 14` (less than 1 unit per day)
+- **03| Low**: `recent_sales_units < 28` (less than 2 units per day)
+- **04| Alive**: `recent_sales_units < 56` (less than 4 units per day)
+- **05| Medium**: `recent_sales_units < 84` (less than 6 units per day)
+- **06| Winning**: `recent_sales_units < 140` (less than 10 units per day)
+- **07| High Winning**: `recent_sales_units >= 140` (10+ units per day)
+
+### Non-Eligible Categories (filtered out from forecasting)
+- **Age**: `00| Draft`, `01| New` (products that haven't been launched yet or are very new)
+- **Sales**: `01| Dead` (products with no recent sales)
+
 ## Monitoring
 
 ### Log Files

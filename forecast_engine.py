@@ -166,7 +166,8 @@ def main():
         try:
             forecast_results = forecast_demand(
                 processed_data=processed_df,
-                spark=spark
+                spark=spark,
+                run_id=run_id
             )
             
             # Clear caches after forecasting to free memory
