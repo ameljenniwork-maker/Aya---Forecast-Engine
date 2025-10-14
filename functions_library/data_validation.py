@@ -136,3 +136,71 @@ def validate_log_level(logger: logging.Logger) -> None:
     if log_level not in valid_log_levels:
         logger.error(f"    [ERROR] Invalid log level: {log_level}")
         raise ValueError(f"Invalid log level: {log_level}")
+
+
+def log_filtered_category_statistics(processed_df, logger: logging.Logger) -> None:
+    """
+    Log statistics about filtered categories (non-eligible categories)
+    
+    Args:
+        processed_df: Processed Spark DataFrame with categories
+        logger: Logger instance
+    """
+    logger.info("  [FILTERS] Analyzing filtered category statistics...")
+    
+    try:
+        # Get total counts
+        total_products = processed_df.select("product_id").distinct().count()
+        total_sales = processed_df.agg({"sales_units": "sum"}).collect()[0][0] or 0
+        
+        # Get non-eligible categories from config
+        non_eligible_age = CONFIG.NON_ELIGIBLE_CATEGORIES.get('age_categories', [])
+        non_eligible_sales = CONFIG.NON_ELIGIBLE_CATEGORIES.get('sales_categories', [])
+        
+        # Calculate filtered statistics for age categories
+        if non_eligible_age:
+            age_filtered_df = processed_df.filter(processed_df.age_category.isin(non_eligible_age))
+            age_filtered_products = age_filtered_df.select("product_id").distinct().count()
+            age_filtered_sales = age_filtered_df.agg({"sales_units": "sum"}).collect()[0][0] or 0
+            
+            age_product_pct = (age_filtered_products / total_products * 100) if total_products > 0 else 0
+            age_sales_pct = (age_filtered_sales / total_sales * 100) if total_sales > 0 else 0
+            
+            logger.info(f"    [AGE FILTERS] Non-eligible age categories: {non_eligible_age}")
+            logger.info(f"    [AGE FILTERS] Filtered products: {age_filtered_products:,} ({age_product_pct:.1f}% of total)")
+            logger.info(f"    [AGE FILTERS] Filtered sales units: {age_filtered_sales:,} ({age_sales_pct:.1f}% of total)")
+        
+        # Calculate filtered statistics for sales categories
+        if non_eligible_sales:
+            sales_filtered_df = processed_df.filter(processed_df.sales_category.isin(non_eligible_sales))
+            sales_filtered_products = sales_filtered_df.select("product_id").distinct().count()
+            sales_filtered_sales = sales_filtered_df.agg({"sales_units": "sum"}).collect()[0][0] or 0
+            
+            sales_product_pct = (sales_filtered_products / total_products * 100) if total_products > 0 else 0
+            sales_sales_pct = (sales_filtered_sales / total_sales * 100) if total_sales > 0 else 0
+            
+            logger.info(f"    [SALES FILTERS] Non-eligible sales categories: {non_eligible_sales}")
+            logger.info(f"    [SALES FILTERS] Filtered products: {sales_filtered_products:,} ({sales_product_pct:.1f}% of total)")
+            logger.info(f"    [SALES FILTERS] Filtered sales units: {sales_filtered_sales:,} ({sales_sales_pct:.1f}% of total)")
+        
+        # Calculate combined filtered statistics
+        all_filtered_categories = non_eligible_age + non_eligible_sales
+        if all_filtered_categories:
+            combined_filtered_df = processed_df.filter(
+                processed_df.age_category.isin(non_eligible_age) | 
+                processed_df.sales_category.isin(non_eligible_sales)
+            )
+            combined_filtered_products = combined_filtered_df.select("product_id").distinct().count()
+            combined_filtered_sales = combined_filtered_df.agg({"sales_units": "sum"}).collect()[0][0] or 0
+            
+            combined_product_pct = (combined_filtered_products / total_products * 100) if total_products > 0 else 0
+            combined_sales_pct = (combined_filtered_sales / total_sales * 100) if total_sales > 0 else 0
+            
+            logger.info(f"    [COMBINED] Total filtered products: {combined_filtered_products:,} ({combined_product_pct:.1f}% of total)")
+            logger.info(f"    [COMBINED] Total filtered sales units: {combined_filtered_sales:,} ({combined_sales_pct:.1f}% of total)")
+        
+        logger.info(f"    [TOTALS] Total products: {total_products:,}")
+        logger.info(f"    [TOTALS] Total sales units: {total_sales:,}")
+        
+    except Exception as e:
+        logger.warning(f"    [WARNING] Could not calculate filtered category statistics: {e}")

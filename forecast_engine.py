@@ -14,7 +14,7 @@ from pyspark.sql import SparkSession
 # Local imports
 from functions_library.logger_configuration import setup_logger
 import configuration as CONFIG
-from functions_library.data_validation import validate_configuration
+from functions_library.data_validation import validate_configuration, log_filtered_category_statistics
 from functions_library.data_processing import process_data
 from functions_library.forecast_generation import forecast_demand
 from functions_library.supabase_connection import SupabaseClient
@@ -120,6 +120,9 @@ def main():
         step1_time = time.time() - step1_start
         logger.info(f"[OK] Processing complete: {processed_df.count()} rows")
         logger.info(f"[TIME] Step 1 Total Time: {step1_time:.2f} seconds")
+        
+        # Log filtered category statistics
+        log_filtered_category_statistics(processed_df, logger)
         logger.info("")
         
         # Step 2: Upload processed features to Supabase Storage
