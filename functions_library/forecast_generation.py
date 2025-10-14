@@ -11,7 +11,6 @@ from typing import Dict, Any
 # Third-party imports
 import pandas as pd
 import numpy as np
-from prophet import Prophet
 
 # PySpark imports
 from pyspark.sql import DataFrame, SparkSession
@@ -110,7 +109,6 @@ def forecast_demand(processed_data: DataFrame, spark: SparkSession = None) -> Da
 
 
 def filter_non_eligible_categories(processed_data: DataFrame, forecast_start_date: str) -> DataFrame:
-    global logger
     """
     Filter out products that are not eligible for forecasting based on configuration
     

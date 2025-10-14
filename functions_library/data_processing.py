@@ -39,19 +39,19 @@ def read_data(spark: SparkSession) -> tuple[DataFrame, DataFrame, DataFrame]:
         
         # Read sales data (all data from HISTORY_START_DATE onwards)
         logger.info(f"    Reading sales data from {CONFIG.HISTORY_START_DATE} onwards...")
-        sales_df = client.read_sales_data(CONFIG.HISTORY_START_DATE, spark, logger)
+        sales_df = client.read_sales_data(CONFIG.HISTORY_START_DATE, spark)
         sales_count = sales_df.count()
         logger.info(f"    [OK] Sales data: {sales_count} records")
         
         # Read products data
         logger.info("    Reading products data...")
-        products_df = client.read_products(spark, logger)
+        products_df = client.read_products(spark)
         products_count = products_df.count() if products_df else 0
         logger.info(f"    [OK] Products data: {products_count} records")
         
         # Read calendar effects data
         logger.info("    Reading calendar effects data...")
-        calendar_effects_df = client.read_calendar_effects(spark, logger)
+        calendar_effects_df = client.read_calendar_effects(spark)
         calendar_count = calendar_effects_df.count() if calendar_effects_df else 0
         logger.info(f"    [OK] Calendar effects data: {calendar_count} records")
         

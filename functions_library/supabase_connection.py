@@ -160,7 +160,7 @@ class SupabaseClient:
             logger.error(f"Failed to read table {table_name}: {e}")
             raise
 
-    def read_sales_data(self, start_date: str, spark: SparkSession, logger, client: "SupabaseClient" = None) -> DataFrame:
+    def read_sales_data(self, start_date: str, spark: SparkSession, client: "SupabaseClient" = None) -> DataFrame:
         """Read sales data and return Spark DataFrame"""
         if client is None:
             client = self
@@ -173,7 +173,7 @@ class SupabaseClient:
         
         return self.batch_read_table(CONFIG.TABLES["sales_movement"], spark, filters=filters)
 
-    def read_products(self, spark: SparkSession, logger, client: "SupabaseClient" = None) -> DataFrame:
+    def read_products(self, spark: SparkSession, client: "SupabaseClient" = None) -> DataFrame:
         """Read products data and return Spark DataFrame"""
         if client is None:
             client = self
@@ -182,7 +182,7 @@ class SupabaseClient:
         logger.info("No product filter applied - processing all products temporarily")
         return self.batch_read_table(CONFIG.TABLES["products"], spark)
 
-    def read_calendar_effects(self, spark: SparkSession, logger, client: "SupabaseClient" = None) -> DataFrame:
+    def read_calendar_effects(self, spark: SparkSession, client: "SupabaseClient" = None) -> DataFrame:
         """Read calendar effects data and return Spark DataFrame"""
         if client is None:
             client = self
