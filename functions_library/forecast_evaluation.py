@@ -6,17 +6,10 @@ including bias calculation, error distribution analysis, and visualization.
 """
 
 # Standard library imports
-import os
-import sys
-import time
 import logging
 import math
 import re
-import io
-from datetime import timedelta
-from importlib import reload
-from pathlib import Path
-from typing import Dict, Any, Optional, Tuple, Union
+from typing import Dict, Any, Optional
 
 # Third-party imports
 import pandas as pd
@@ -367,99 +360,6 @@ def analyze_category_performance(
     ).toPandas()
     
     return result
-
-
-def list_available_styles(
-    df: DataFrame,
-    limit: int = 20
-) -> pd.DataFrame:
-    """
-    List available styles in the dataset.
-    
-    Args:
-        df: Spark DataFrame with style column
-        limit: Maximum number of styles to return (default 20)
-        
-    Returns:
-        pandas.DataFrame: List of available styles
-    """
-    styles = (df
-        .select("style")
-        .distinct()
-        .limit(limit)
-    ).toPandas()
-    
-    return styles
-
-
-def display_style_info(
-    style: str,
-    products_df: DataFrame
-) -> None:
-    """
-    Display product information, image, and descriptions for a specific style.
-    
-    Args:
-        style: The style to display information for
-        products_df: Spark DataFrame with product information
-    """
-    try:
-        # Filter for the specific style using product_number column
-        style_data = products_df.filter(F.col("product_number") == style).toPandas()
-        
-        if style_data.empty:
-            print(f"No product information found for style: {style}")
-            return
-        
-        # Display basic product information
-        print(f"\n=== Product Information for Style: {style} ===")
-        print(f"Number of records found: {len(style_data)}")
-        
-        # Show all available columns
-        print(f"\nAvailable columns: {list(style_data.columns)}")
-        
-        # Display product title
-        if 'product_title' in style_data.columns:
-            title = style_data['product_title'].iloc[0]
-            if pd.notna(title) and title.strip():
-                print(f"Product Title: {title}")
-        
-        # Display product description
-        if 'product_description' in style_data.columns:
-            description = style_data['product_description'].iloc[0]
-            if pd.notna(description) and description.strip():
-                print(f"Product Description: {description}")
-        
-        # Display image if available
-        if 'image_url' in style_data.columns:
-            image_url = style_data['image_url'].iloc[0]
-            if pd.notna(image_url) and image_url.strip():
-                print(f"Image URL: {image_url}")
-                try:
-                    from IPython.display import Image, display
-                    display(Image(url=image_url, width=300, height=300))
-                except Exception as e:
-                    print(f"Could not display image: {e}")
-        
-        # Display other key information
-        key_columns = ['price', 'status', 'created_at', 'updated_at', 'shopify_id', 'product_number']
-        print(f"\nKey Product Details:")
-        for col in key_columns:
-            if col in style_data.columns:
-                value = style_data[col].iloc[0]
-                if pd.notna(value):
-                    print(f"  {col}: {value}")
-        
-        # Display full record details
-        print(f"\nFull Product Record:")
-        for idx, row in style_data.iterrows():
-            print(f"\nRecord {idx + 1}:")
-            for col, value in row.items():
-                if pd.notna(value) and value != '':
-                    print(f"  {col}: {value}")
-        
-    except Exception as e:
-        print(f"Error displaying style information: {e}")
 
 
 def plot_product_details_daily_short(

@@ -9,7 +9,6 @@ import sys
 import time
 
 # PySpark imports
-from pyspark.sql import functions as F
 from pyspark.sql import SparkSession
 
 # Local imports

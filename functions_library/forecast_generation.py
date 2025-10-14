@@ -20,8 +20,6 @@ from pyspark.sql.window import Window
 
 # Local imports
 from functions_library.supabase_connection import SupabaseClient
-import sys
-sys.path.append('..')
 import configuration as CONFIG
 from functions_library.logger_configuration import get_logger
 

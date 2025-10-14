@@ -7,7 +7,6 @@ Validates configuration parameters and data integrity
 # Standard library imports
 import logging
 from datetime import datetime, timedelta
-from typing import Dict, Any, List, Tuple
 
 # Local imports
 import configuration as CONFIG
