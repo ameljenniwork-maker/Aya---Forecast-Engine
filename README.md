@@ -56,3 +56,12 @@ Key settings in `configuration.py`:
 - `HISTORY_END_DATE`: End of historical data  
 - `FORECAST_HORIZON`: Days to forecast ahead
 - `AGE_SALES_CATEGORY_CONFIG`: Lifecycle-specific parameters
+
+## Monitoring
+
+### Log Files
+- **Location**: `logs/forecast_run{RUN_ID}_YYYYMMDD_HHMMSS.log`
+- **Monitor for errors**: Check for `ERROR` or `WARNING` messages
+- **Performance tracking**: Review step timing and data processing metrics
+- **Debugging**: Detailed execution flow and Spark task information
+

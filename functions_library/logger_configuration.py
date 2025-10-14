@@ -15,7 +15,7 @@ from datetime import datetime
 LOG_LEVEL = "INFO"
 LOG_FORMAT = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 
-def setup_logger(name: str = "aya_forecast", level: str = LOG_LEVEL) -> logging.Logger:
+def setup_logger(name: str = "aya_forecast", level: str = LOG_LEVEL, run_id: int = None) -> logging.Logger:
     """Setup centralized logger for the pipeline"""
     
     # Suppress unwanted loggers completely
@@ -46,7 +46,11 @@ def setup_logger(name: str = "aya_forecast", level: str = LOG_LEVEL) -> logging.
     console_handler.setLevel(getattr(logging, level))
     
     # Create file handler
-    log_filename = f"logs/forecast_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    if run_id is not None:
+        log_filename = f"logs/forecast_run{run_id}_{timestamp}.log"
+    else:
+        log_filename = f"logs/forecast_{timestamp}.log"
     os.makedirs("logs", exist_ok=True)
     file_handler = logging.FileHandler(log_filename)
     file_handler.setLevel(getattr(logging, level))

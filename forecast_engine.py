@@ -51,8 +51,17 @@ def main():
     # Use configuration defaults directly
     log_level = 'INFO'
     
-    # Setup logging
-    logger = setup_logger("aya_forecast", log_level)
+    # Get run_id early for logging
+    try:
+        storage_client = SupabaseClient()
+        run_id = get_next_run_id(storage_client)
+    except Exception as e:
+        # If we can't get run_id, continue without it
+        run_id = None
+        print(f"Warning: Could not get run_id for logging: {e}")
+    
+    # Setup logging with run_id
+    logger = setup_logger("aya_forecast", log_level, run_id)
     logger.info("Aya Forecast Engine started")
     
     # Initialize Spark session - simple configuration
@@ -105,6 +114,9 @@ def main():
         # Clear any caching and force fresh evaluation
         processed_df.unpersist()
         
+        # Clear all caches after data processing to free memory
+        spark.catalog.clearCache()
+        
         step1_time = time.time() - step1_start
         logger.info(f"[OK] Processing complete: {processed_df.count()} rows")
         logger.info(f"[TIME] Step 1 Total Time: {step1_time:.2f} seconds")
@@ -153,6 +165,10 @@ def main():
                 processed_data=processed_df,
                 spark=spark
             )
+            
+            # Clear caches after forecasting to free memory
+            spark.catalog.clearCache()
+            
             step3_time = time.time() - step3_start
             logger.info(f"[OK] Forecasting complete: {forecast_results.count()} forecast records")
             logger.info(f"[TIME] Step 3 Total Time: {step3_time:.2f} seconds")
@@ -174,14 +190,10 @@ def main():
         step4_start = time.time()
         
         try:
-            # Create storage client
-            storage_client = SupabaseClient()
-            
             # Convert Spark DataFrame to Pandas for upload
             forecast_pandas = forecast_results.toPandas()
             
-            # Generate incremental run ID
-            run_id = get_next_run_id(storage_client)
+            # Use the run_id we got earlier
             
             # Upload forecast run
             success = storage_client.upload_forecast_run(forecast_pandas, run_id)
@@ -228,9 +240,18 @@ def main():
         logger.error(traceback.format_exc())
         return 1
     finally:
-        # Clean up Spark session
-        logger.info("Shutting down Spark session...")
+        # Clean up Spark session and clear all caches
+        logger.info("Cleaning up Spark resources...")
+        try:
+            # Clear all cached DataFrames and RDDs
+            spark.catalog.clearCache()
+            logger.info("Cleared all cached DataFrames and RDDs")
+        except Exception as e:
+            logger.warning(f"Could not clear cache: {e}")
+        
+        # Stop Spark session
         spark.stop()
+        logger.info("Spark session stopped")
 
 if __name__ == "__main__":
     sys.exit(main())
