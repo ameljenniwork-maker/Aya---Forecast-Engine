@@ -146,13 +146,9 @@ def filter_non_eligible_categories(processed_data: DataFrame, forecast_start_dat
     history_end_date = F.date_sub(F.lit(forecast_start_date), 1)
     logger.info(f"Configured history end date: {history_end_date}")
     
-    # Get the actual last available date in the data
-    actual_last_date = processed_subset.select(F.max("date")).collect()[0][0]
-    logger.info(f"Actual last date in data: {actual_last_date}")
-    
-    # Use the actual last date instead of configured history_end_date
-    logger.info(f"Using actual data range up to: {actual_last_date}")
-    processed_subset = processed_subset.filter(F.col("date") <= actual_last_date)
+    # Use configured history_end_date directly
+    logger.info(f"Using configured history end date: {CONFIG.HISTORY_END_DATE}")
+    processed_subset = processed_subset.filter(F.col("date") <= F.lit(CONFIG.HISTORY_END_DATE))
     date_filtering_time = time.time() - date_filtering_start
     logger.info(f"Date filtering: {date_filtering_time:.2f} seconds")
     
@@ -179,17 +175,15 @@ def filter_non_eligible_categories(processed_data: DataFrame, forecast_start_dat
     date_range_time = time.time() - date_range_start
     logger.info(f"FILTERING: Date range: {date_range[0]} to {date_range[1]} (took {date_range_time:.2f}s)")
     
-    # Simple filtering: get products on the last available date with eligible categories
-    # Use the actual last date in the data instead of configured history_end_date
+    # Simple filtering: get products on the configured history end date with eligible categories
     logger.info(f"FILTERING: Starting on_forecast_qualification filtering...")
     qualification_start = time.time()
     
-    # Get the last available date in the data
-    last_available_date = processed_subset.select(F.max("date")).collect()[0][0]
-    logger.info(f"FILTERING: Using last available date: {last_available_date} (configured: {history_end_date})")
+    # Use configured history end date for category filtering
+    logger.info(f"FILTERING: Using configured history end date: {CONFIG.HISTORY_END_DATE}")
     
     on_forecast_qualification = (processed_subset
-        .filter(F.col("date") == last_available_date)
+        .filter(F.col("date") == F.lit(CONFIG.HISTORY_END_DATE))
         .filter(~F.col("age_category").isin(non_eligible_age))
         .filter(~F.col("sales_category").isin(non_eligible_sales))
         .select("product_id", "age_sales_category", "sales_category", "age_category", "style")
@@ -227,12 +221,12 @@ def filter_non_eligible_categories(processed_data: DataFrame, forecast_start_dat
     
     if qualified_count == 0:
         logger.warning("No qualified products found! Debugging filters:")
-        logger.warning(f"  Date filter: date == {last_available_date} (last available date)")
+        logger.warning(f"  Date filter: date == {CONFIG.HISTORY_END_DATE} (configured history end date)")
         logger.warning(f"  Age filter: age_category NOT IN {non_eligible_age}")
         logger.warning(f"  Sales filter: sales_category NOT IN {non_eligible_sales}")
         
-        # Check what categories exist in the data on last available date
-        last_date_data = processed_subset.filter(F.col("date") == last_available_date)
+        # Check what categories exist in the data on configured history end date
+        last_date_data = processed_subset.filter(F.col("date") == F.lit(CONFIG.HISTORY_END_DATE))
         last_date_count = last_date_data.count()
         if last_date_count > 0:
             age_categories = last_date_data.select("age_category").distinct().collect()
