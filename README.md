@@ -32,6 +32,8 @@ python forecast_engine.py
 jupyter notebook evaluate_forecast.ipynb
 ```
 
+
+
 ## Architecture
 
 - **`forecast_engine.py`**: Main pipeline orchestrator
@@ -101,3 +103,8 @@ Key settings in `configuration.py`:
 - **Performance tracking**: Review step timing and data processing metrics
 - **Debugging**: Detailed execution flow and Spark task information
 
+
+
+### Forecast Evalution Notebook
+
+When multiple forecast runs overlap on the same dates, the notebook loads the latest forecast for each date.

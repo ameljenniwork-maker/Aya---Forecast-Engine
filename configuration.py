@@ -41,7 +41,7 @@ TABLES = {
 # =============================================================================
 # Date ranges for data processing
 HISTORY_START_DATE = "2025-04-21"  # Start of sales data
-HISTORY_END_DATE = "2025-09-30"    # End of historical data (actual data availability)
+HISTORY_END_DATE = "2025-08-29"    # End of historical data (actual data availability)
 # Compute forecast start date as the day after HISTORY_END_DATE (keep as string)
 _history_end_dt = datetime.strptime(HISTORY_END_DATE, "%Y-%m-%d").date()
 FORECAST_START_DATE = (_history_end_dt + timedelta(days=1)).strftime("%Y-%m-%d")
@@ -111,7 +111,7 @@ NON_ELIGIBLE_CATEGORIES = {
 
 FORECAST_CONFIG = {
     "FORECAST_START_DATE": FORECAST_START_DATE,  # Automatically calculated as HISTORY_END_DATE + 1
-    "FORECAST_HORIZON": 14,
+    "FORECAST_HORIZON": 7,
     "MIN_OBS_FOR_PROPHET": 8,
     "CORSTON_ZEROS_RATIO": 0.6,  # Threshold for using Croston method instead of Prophet
     "AGE_SALES_CATEGORY_CONFIG": {

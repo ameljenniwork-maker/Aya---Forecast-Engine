@@ -104,7 +104,7 @@ def generate_categories(sales_df: DataFrame, products_df: DataFrame) -> DataFram
     try:
         # Step 1: Basic column mapping and renaming
         logger.info("    Mapping and renaming columns...")
-        logger.info(f"    [DEBUG] Input sales_df count before mapping: {sales_df.count()}")
+        logger.debug(f"    [DEBUG] Input sales_df count before mapping: {sales_df.count()}")
         sales_df = sales_df.select(
             F.col("id").alias("id"),
             F.col("product_id").alias("product_id"),
@@ -113,30 +113,30 @@ def generate_categories(sales_df: DataFrame, products_df: DataFrame) -> DataFram
             F.col("units_sold").alias("sales_units"),
             F.col("sales_amount").alias("sales_amount")
         )
-        logger.info(f"    [DEBUG] Sales_df count after mapping: {sales_df.count()}")
+        logger.debug(f"    [DEBUG] Sales_df count after mapping: {sales_df.count()}")
         logger.info("    [OK] Column mapping completed")
         
         # Step 2: Create day_in_stock as row number per product
         logger.info("    Creating day_in_stock column...")
-        logger.info(f"    [DEBUG] Sales_df count before day_in_stock: {sales_df.count()}")
+        logger.debug(f"    [DEBUG] Sales_df count before day_in_stock: {sales_df.count()}")
         window_spec = Window.partitionBy("product_id").orderBy("date")
         sales_df = sales_df.withColumn("day_in_stock", F.row_number().over(window_spec))
-        logger.info(f"    [DEBUG] Sales_df count after day_in_stock: {sales_df.count()}")
+        logger.debug(f"    [DEBUG] Sales_df count after day_in_stock: {sales_df.count()}")
         logger.info("    [OK] Day in stock calculation completed")
         
         # Step 3: Create sales categories using configuration
         logger.info("    Creating recent sales units window...")
-        logger.info(f"    [DEBUG] Sales_df count before recent_sales_units: {sales_df.count()}")
+        logger.debug(f"    [DEBUG] Sales_df count before recent_sales_units: {sales_df.count()}")
         window_spec = Window.partitionBy("product_id").orderBy("date").rowsBetween(-(CONFIG.RECENT_SALES_UNITS_WINDOW-1), 0)
         sales_df = sales_df.withColumn(
             "recent_sales_units", F.sum("sales_units").over(window_spec)
         )
-        logger.info(f"    [DEBUG] Sales_df count after recent_sales_units: {sales_df.count()}")
+        logger.debug(f"    [DEBUG] Sales_df count after recent_sales_units: {sales_df.count()}")
         logger.info("    [OK] Recent sales units calculated")
         
         # Step 4: Create age categories using simple logic
         logger.info("    Creating age categories...")
-        logger.info(f"    [DEBUG] Sales_df count before age categories: {sales_df.count()}")
+        logger.debug(f"    [DEBUG] Sales_df count before age categories: {sales_df.count()}")
         
         # Simple age category logic
         sales_df = sales_df.withColumn("age_category",
@@ -146,12 +146,12 @@ def generate_categories(sales_df: DataFrame, products_df: DataFrame) -> DataFram
             .when(F.col("day_in_stock") <= 31, "03| Growth")
             .otherwise("04| Mature")
         )
-        logger.info(f"    [DEBUG] Sales_df count after age categories: {sales_df.count()}")
+        logger.debug(f"    [DEBUG] Sales_df count after age categories: {sales_df.count()}")
         logger.info("    [OK] Age categories created using simple logic")
         
         # Create sales categories using configuration
         logger.info("    Creating cumulative sales and first sales date...")
-        logger.info(f"    [DEBUG] Sales_df count before cumulative sales: {sales_df.count()}")
+        logger.debug(f"    [DEBUG] Sales_df count before cumulative sales: {sales_df.count()}")
         cumulative_sales_window = Window.partitionBy("product_id").orderBy("date").rowsBetween(Window.unboundedPreceding, 0)
         sales_df = sales_df.withColumn(
             "cumulative_sales", F.sum("sales_units").over(cumulative_sales_window)
@@ -162,12 +162,12 @@ def generate_categories(sales_df: DataFrame, products_df: DataFrame) -> DataFram
             "first_positive_sales_date",
             F.min(F.when(F.col("cumulative_sales") > 0, F.col("date"))).over(first_sales_window)
         )
-        logger.info(f"    [DEBUG] Sales_df count after cumulative sales: {sales_df.count()}")
+        logger.debug(f"    [DEBUG] Sales_df count after cumulative sales: {sales_df.count()}")
         logger.info("    [OK] Cumulative sales and first sales date calculated")
         
         # Create sales categories using simple logic
         logger.info("    Creating sales categories using simple logic...")
-        logger.info(f"    [DEBUG] Sales_df count before sales categories: {sales_df.count()}")
+        logger.debug(f"    [DEBUG] Sales_df count before sales categories: {sales_df.count()}")
         
         # Simple sales category logic
         sales_df = sales_df.withColumn("sales_category",
@@ -180,7 +180,7 @@ def generate_categories(sales_df: DataFrame, products_df: DataFrame) -> DataFram
             .when(F.col("recent_sales_units") < 140, "06| Winning")
             .otherwise("07| High Winning")
         )
-        logger.info(f"    [DEBUG] Sales_df count after sales categories: {sales_df.count()}")
+        logger.debug(f"    [DEBUG] Sales_df count after sales categories: {sales_df.count()}")
         logger.info("    [OK] Sales categories created using simple logic")
         
         # Create summarized sales categories by concatenating age and sales categories
@@ -209,7 +209,7 @@ def generate_categories(sales_df: DataFrame, products_df: DataFrame) -> DataFram
         
         # Log sales dataframe count after categories generation
         sales_count = sales_df.count()
-        logger.info(f"[DATA COUNT] Sales DF after generate_categories: {sales_count} rows")
+        logger.debug(f"[DATA COUNT] Sales DF after generate_categories: {sales_count} rows")
         logger.info("=" * 50)
         logger.info("FUNCTION: generate_categories - COMPLETED")
         logger.info("=" * 50)
@@ -255,7 +255,7 @@ def generate_salary_period(sales_df: DataFrame) -> DataFrame:
         
         # Log sales dataframe count after salary period generation
         sales_count = sales_df.count()
-        logger.info(f"[DATA COUNT] Sales DF after generate_salary_period: {sales_count} rows")
+        logger.debug(f"[DATA COUNT] Sales DF after generate_salary_period: {sales_count} rows")
         logger.info("=" * 50)
         logger.info("FUNCTION: generate_salary_period - COMPLETED")
         logger.info("=" * 50)
@@ -396,13 +396,13 @@ def integrate_data(sales_df: DataFrame, products_df: DataFrame, calendar_effects
     try:
         # Join with products data
         logger.info("    Joining with products data...")
-        logger.info(f"    [DEBUG] Sales_df count before products join: {sales_df.count()}")
+        logger.debug(f"    [DEBUG] Sales_df count before products join: {sales_df.count()}")
         products_selected = products_df.select(
             F.col("id").alias("product_id"),
             F.col("product_number").alias("style")
         )
         sales_df = sales_df.join(products_selected, "product_id", "left")
-        logger.info(f"    [DEBUG] Sales_df count after products join: {sales_df.count()}")
+        logger.debug(f"    [DEBUG] Sales_df count after products join: {sales_df.count()}")
         logger.info("    [OK] Products data joined")
         
         # Process calendar effects
@@ -412,9 +412,9 @@ def integrate_data(sales_df: DataFrame, products_df: DataFrame, calendar_effects
         # Join calendar effects with sales data
         if processed_calendar_effects is not None:
             logger.info("    Joining calendar effects with sales data...")
-            logger.info(f"    [DEBUG] Sales_df count before calendar effects join: {sales_df.count()}")
+            logger.debug(f"    [DEBUG] Sales_df count before calendar effects join: {sales_df.count()}")
             sales_df = sales_df.join(processed_calendar_effects, "date", "left")
-            logger.info(f"    [DEBUG] Sales_df count after calendar effects join: {sales_df.count()}")
+            logger.debug(f"    [DEBUG] Sales_df count after calendar effects join: {sales_df.count()}")
             
             # Fill null values for all calendar effect columns with 0
             logger.info("    Filling null values for calendar effect columns...")
@@ -433,7 +433,7 @@ def integrate_data(sales_df: DataFrame, products_df: DataFrame, calendar_effects
         
         # Log sales dataframe count after data integration
         sales_count = sales_df.count()
-        logger.info(f"[DATA COUNT] Sales DF after integrate_data: {sales_count} rows")
+        logger.debug(f"[DATA COUNT] Sales DF after integrate_data: {sales_count} rows")
         logger.info("=" * 50)
         logger.info("FUNCTION: integrate_data - COMPLETED")
         logger.info("=" * 50)
@@ -467,7 +467,7 @@ def process_data(spark: SparkSession) -> DataFrame:
         sales_df, products_df, calendar_effects_df = read_data(spark)
         read_duration = time.time() - read_start
         logger.info(f"  [1/4] [OK] Data reading completed in {read_duration:.2f}s")
-        logger.info(f"  [1/4] [DEBUG] Sales DF after read_data: {sales_df.count()} rows")
+        logger.debug(f"  [1/4] [DEBUG] Sales DF after read_data: {sales_df.count()} rows")
         
         # Step 2: Generate categories
         logger.info("  [2/4] Generating categories...")
@@ -475,7 +475,7 @@ def process_data(spark: SparkSession) -> DataFrame:
         sales_df = generate_categories(sales_df, products_df)
         categories_duration = time.time() - categories_start
         logger.info(f"  [2/4] [OK] Categories generated in {categories_duration:.2f}s")
-        logger.info(f"  [2/4] [DEBUG] Sales DF after generate_categories: {sales_df.count()} rows")
+        logger.debug(f"  [2/4] [DEBUG] Sales DF after generate_categories: {sales_df.count()} rows")
         
         # Step 3: Generate salary period
         logger.info("  [3/4] Generating salary periods...")
@@ -483,7 +483,7 @@ def process_data(spark: SparkSession) -> DataFrame:
         sales_df = generate_salary_period(sales_df)
         salary_duration = time.time() - salary_start
         logger.info(f"  [3/4] [OK] Salary periods generated in {salary_duration:.2f}s")
-        logger.info(f"  [3/4] [DEBUG] Sales DF after generate_salary_period: {sales_df.count()} rows")
+        logger.debug(f"  [3/4] [DEBUG] Sales DF after generate_salary_period: {sales_df.count()} rows")
         
         # Step 4: Integrate all data (join with products and calendar effects)
         logger.info("  [4/4] Integrating all data...")
@@ -491,7 +491,7 @@ def process_data(spark: SparkSession) -> DataFrame:
         sales_df = integrate_data(sales_df, products_df, calendar_effects_df)
         integrate_duration = time.time() - integrate_start
         logger.info(f"  [4/4] [OK] Data integration completed in {integrate_duration:.2f}s")
-        logger.info(f"  [4/4] [DEBUG] Sales DF after integrate_data: {sales_df.count()} rows")
+        logger.debug(f"  [4/4] [DEBUG] Sales DF after integrate_data: {sales_df.count()} rows")
         
         # Get final summary
         total_records = sales_df.count()

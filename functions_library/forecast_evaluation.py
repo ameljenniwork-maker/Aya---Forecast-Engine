@@ -6,7 +6,7 @@ including bias calculation, error distribution analysis, and visualization.
 """
 
 # Standard library imports
-from typing import Optional
+from typing import Optional, List, Dict, Any
 
 # Third-party imports
 import pandas as pd
@@ -57,6 +57,154 @@ COLORS = {
     "text": "#2f4f4f",              # Dark text
     "border": "#c0c0c0"             # Light border
 }
+
+
+def summarize_runs_max_date(storage_client, spark) -> pd.DataFrame:
+    """
+    List all forecast runs in storage, load each run parquet, and compute the
+    maximum available date per run.
+
+    Args:
+        storage_client: Instance providing list_forecast_runs() and download_forecast_run(run_id, spark)
+        spark: Active SparkSession
+
+    Returns:
+        pandas.DataFrame with columns: run_id, filename, last_modified, max_date
+        (sorted by run_id ascending). Empty DataFrame if no runs found.
+    """
+    try:
+        runs: List[Dict[str, Any]] = storage_client.list_forecast_runs()
+    except Exception:
+        runs = []
+
+    if not runs:
+        return pd.DataFrame(columns=["run_id", "filename", "last_modified", "max_date"]).astype({"run_id": "int64"})
+
+    results: List[Dict[str, Any]] = []
+
+    for run in runs:
+        run_id = run.get("run_id")
+        filename = run.get("filename")
+        last_modified = run.get("last_modified")
+
+        try:
+            sdf: Optional[DataFrame] = storage_client.download_forecast_run(run_id, spark)
+            if sdf is None:
+                results.append({
+                    "run_id": run_id,
+                    "filename": filename,
+                    "last_modified": last_modified,
+                    "max_date": None,
+                })
+                continue
+
+            # Compute max date; cast to date in case source is string
+            sdf_with_date = sdf.withColumn("date", F.to_date(F.col("date")))
+            max_date_row = sdf_with_date.agg(F.max(F.col("date")).alias("max_date")).collect()[0]
+            max_date_value = max_date_row["max_date"]
+
+            results.append({
+                "run_id": run_id,
+                "filename": filename,
+                "last_modified": last_modified,
+                "max_date": pd.to_datetime(max_date_value) if max_date_value is not None else None,
+            })
+        except Exception:
+            results.append({
+                "run_id": run_id,
+                "filename": filename,
+                "last_modified": last_modified,
+                "max_date": None,
+            })
+
+    df = pd.DataFrame(results)
+    if not df.empty:
+        df = df.sort_values("run_id").reset_index(drop=True)
+    return df
+
+
+def load_latest_per_date_forecasts(storage_client, spark) -> DataFrame:
+    """
+    Read all stored forecast runs and return the union of rows from the
+    latest available run per date. This prevents overlapping runs from
+    distorting the time series.
+
+    Selection rule:
+      - For each distinct date across all runs, keep only rows belonging to
+        the maximum run_id that has data for that date (keep all products on that date).
+
+    Args:
+        storage_client: Instance with list_forecast_runs() and download_forecast_run(run_id, spark)
+        spark: Active SparkSession
+
+    Returns:
+        Spark DataFrame filtered to latest run per date. The output includes a
+        "run_id" column indicating which run each row came from.
+    """
+    # Get available runs (sorted asc by implementation of list_forecast_runs)
+    try:
+        runs: List[Dict[str, Any]] = storage_client.list_forecast_runs()
+    except Exception:
+        runs = []
+
+    if not runs:
+        # Return empty DataFrame with expected schema if no runs are present
+        # We cannot infer schema here; safer to raise or return None.
+        # To keep function pure and predictable, return an empty DF with a minimal schema.
+        from pyspark.sql.types import StructType, StructField, StringType, IntegerType
+        schema = StructType([
+            StructField("date", StringType(), True),
+            StructField("run_id", IntegerType(), True),
+        ])
+        return spark.createDataFrame([], schema)
+
+    combined_df: Optional[DataFrame] = None
+
+    for run in runs:
+        run_id = run.get("run_id")
+        if run_id is None:
+            continue
+        sdf: Optional[DataFrame] = None
+        try:
+            sdf = storage_client.download_forecast_run(run_id, spark)
+        except Exception:
+            sdf = None
+        if sdf is None:
+            continue
+
+        # Ensure date is a date type for consistent grouping
+        sdf = sdf.withColumn("date", F.to_date(F.col("date"))).withColumn("run_id", F.lit(int(run_id)))
+
+        if combined_df is None:
+            combined_df = sdf
+        else:
+            # Allow missing columns and align by name
+            combined_df = combined_df.unionByName(sdf, allowMissingColumns=True)
+
+    if combined_df is None:
+        from pyspark.sql.types import StructType, StructField, DateType, IntegerType
+        schema = StructType([
+            StructField("date", DateType(), True),
+            StructField("run_id", IntegerType(), True),
+        ])
+        return spark.createDataFrame([], schema)
+
+    # Compute max run_id per date
+    max_runs = (
+        combined_df
+        .groupBy("date")
+        .agg(F.max(F.col("run_id")).alias("max_run_id"))
+    )
+
+    # Join to keep only rows from the latest run per date
+    latest_df = (
+        combined_df
+        .join(max_runs, on="date", how="inner")
+        .where(F.col("run_id") == F.col("max_run_id"))
+        .drop("max_run_id")
+    )
+
+    return latest_df
 
 
 def plot_attribute_distribution(df: DataFrame, group_by: list[str]) -> tuple[pd.DataFrame, go.Figure]:
@@ -652,7 +800,7 @@ def plot_accuracy_distribution(
         return (math.nan, math.nan)
 
     # Determine good bounds
-    DEFAULT_LOWER, DEFAULT_UPPER = -5, 20
+    DEFAULT_LOWER, DEFAULT_UPPER = -20, 20
     if good_thresholds and on_forecast_sales_category in good_thresholds:
         raw_low, raw_high = good_thresholds[on_forecast_sales_category]
         if isinstance(raw_low, (int, float)) and isinstance(raw_high, (int, float)) and raw_low >= 0 and raw_high >= 0:

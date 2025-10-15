@@ -153,25 +153,25 @@ def filter_non_eligible_categories(processed_data: DataFrame, forecast_start_dat
     logger.info(f"Date filtering: {date_filtering_time:.2f} seconds")
     
     # Log category distribution after filtering to history end date
-    logger.info("  [DEBUG] Category distribution after filtering to history end date:")
+    logger.debug("  [DEBUG] Category distribution after filtering to history end date:")
     try:
         # Age categories: distinct products and total sales units
         age_dist = processed_subset.groupBy("age_category").agg(
             F.countDistinct("product_id").alias("distinct_products"),
             F.sum("sales_units").alias("total_sales_units")
         ).orderBy("age_category").collect()
-        logger.info("    [AGE] Age category breakdown:")
+        logger.debug("    [AGE] Age category breakdown:")
         for row in age_dist:
-            logger.info(f"    [AGE] {row.age_category}: {row.distinct_products} products, {row.total_sales_units} sales units")
+            logger.debug(f"    [AGE] {row.age_category}: {row.distinct_products} products, {row.total_sales_units} sales units")
         
         # Sales categories: distinct products and total sales units
         sales_dist = processed_subset.groupBy("sales_category").agg(
             F.countDistinct("product_id").alias("distinct_products"),
             F.sum("sales_units").alias("total_sales_units")
         ).orderBy("sales_category").collect()
-        logger.info("    [SALES] Sales category breakdown:")
+        logger.debug("    [SALES] Sales category breakdown:")
         for row in sales_dist:
-            logger.info(f"    [SALES] {row.sales_category}: {row.distinct_products} products, {row.total_sales_units} sales units")
+            logger.debug(f"    [SALES] {row.sales_category}: {row.distinct_products} products, {row.total_sales_units} sales units")
     except Exception as e:
         logger.warning(f"    Could not get category distribution: {e}")
     
@@ -501,7 +501,7 @@ def run_prophet_forecast(qualified_data: DataFrame, params: Dict) -> DataFrame:
             
             # Log progress every 10 products
             if processed_products % 10 == 0:
-                logger.info(f"    Processed {processed_products}/{total_products} product groups ({processed_products/total_products*100:.1f}%)")
+                logger.debug(f"    Processed {processed_products}/{total_products} product groups ({processed_products/total_products*100:.1f}%)")
         
             pdf = pdf.sort_values('ds').reset_index(drop=True)
             
@@ -522,7 +522,7 @@ def run_prophet_forecast(qualified_data: DataFrame, params: Dict) -> DataFrame:
                 style = style.iloc[0] if len(style) > 0 else str(style)
             
             # Log product details
-            logger.info(f"    Processing product {product_id}: age={age_cat}, sales={sales_cat}, age_sales={age_sales_cat}, style={style}, records={len(pdf)}")
+            logger.debug(f"    Processing product {product_id}: age={age_cat}, sales={sales_cat}, age_sales={age_sales_cat}, style={style}, records={len(pdf)}")
             
             # Merge defaults with specific config
             cfg = {**DEFAULT_CONFIG, **AGE_SALES_CATEGORY_CONFIG.get(age_sales_cat, {})}
@@ -544,7 +544,10 @@ def run_prophet_forecast(qualified_data: DataFrame, params: Dict) -> DataFrame:
                 continue
                 
             if "y" in train.columns:
-                zeros_ratio = (train["y"].to_numpy() == 0).mean()
+                # Compute zeros ratio over the most recent RECENT_SALES_UNITS_WINDOW days
+                recent_window = getattr(CONFIG, "RECENT_SALES_UNITS_WINDOW", 14)
+                recent_slice = train.tail(recent_window) if len(train) > recent_window else train
+                zeros_ratio = (recent_slice["y"].to_numpy() == 0).mean()
                 # Skip per-product data diagnostics
             else:
                 zeros_ratio = 0
@@ -671,7 +674,7 @@ def run_prophet_forecast(qualified_data: DataFrame, params: Dict) -> DataFrame:
         
         processing_time = time.time() - processing_start
         batch_total_time = time.time() - batch_start_time
-        logger.info(f"PROPHET: Batch {batch_num}/{total_batches} completed (products={len(batch_products)}). Processing: {processing_time:.2f}s, Total: {batch_total_time:.2f}s")
+        logger.debug(f"PROPHET: Batch {batch_num}/{total_batches} completed (products={len(batch_products)}). Processing: {processing_time:.2f}s, Total: {batch_total_time:.2f}s")
     
     logger.info(f"Generated {len(all_forecasts)} total forecast groups")
     
