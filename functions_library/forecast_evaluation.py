@@ -59,7 +59,7 @@ COLORS = {
 }
 
 
-def plot_attribute_distribution(df: DataFrame, group_by: list[str]) -> pd.DataFrame:
+def plot_attribute_distribution(df: DataFrame, group_by: list[str]) -> tuple[pd.DataFrame, go.Figure]:
     """
     Plot attribute distribution showing product count and sales units by group.
     
@@ -68,7 +68,7 @@ def plot_attribute_distribution(df: DataFrame, group_by: list[str]) -> pd.DataFr
         group_by: List of column names to group by
         
     Returns:
-        pandas.DataFrame: Aggregated results with counts, totals, and percentages
+        tuple: (pandas.DataFrame, plotly.graph_objects.Figure)
     """
     agg_df = (df.groupBy(group_by)
                 .agg(
@@ -132,7 +132,7 @@ def plot_attribute_distribution(df: DataFrame, group_by: list[str]) -> pd.DataFr
             x=0.5
         )
     )
-    return agg_df
+    return agg_df, fig
 
 
 def plot_business_level(
