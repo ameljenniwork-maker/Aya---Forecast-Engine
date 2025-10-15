@@ -139,10 +139,13 @@ def plot_business_level(
     all_data: DataFrame, 
     EVALUATION_START_DATE: str = "2025-07-01", 
     EVALUATION_END_DATE: str = "2025-07-15"
-) -> pd.DataFrame:
+) -> tuple[pd.DataFrame, go.Figure]:
     """
     Aggregate all_data to business level and plot Bias, Sales/Forecast,
     and distinct product counts per age_category.
+
+    Returns:
+        tuple: (pandas.DataFrame with business-level series, plotly Figure)
     """
     # --- Business-level aggregation ---
     business_df = (
@@ -232,7 +235,7 @@ def plot_business_level(
 
     fig.update_layout(title="Business-Level Sales, Forecast & Bias", height=600, width=1100, template=PLOT_TEMPLATE)
 
-    return pdf
+    return pdf, fig
 
 
 def calculate_bias_and_error_bins(
