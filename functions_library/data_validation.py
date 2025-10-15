@@ -8,6 +8,9 @@ Validates configuration parameters and data integrity
 import logging
 from datetime import datetime, timedelta
 
+# PySpark imports
+from pyspark.sql import functions as F
+
 # Local imports
 import configuration as CONFIG
 
@@ -186,21 +189,58 @@ def log_filtered_category_statistics(processed_df, logger: logging.Logger) -> No
         # Calculate combined filtered statistics
         all_filtered_categories = non_eligible_age + non_eligible_sales
         if all_filtered_categories:
-            combined_filtered_df = processed_df.filter(
+            # Find products that have ANY non-eligible records
+            products_with_non_eligible_records = processed_df.filter(
                 processed_df.age_category.isin(non_eligible_age) | 
                 processed_df.sales_category.isin(non_eligible_sales)
-            )
-            combined_filtered_products = combined_filtered_df.select("product_id").distinct().count()
-            combined_filtered_sales = combined_filtered_df.agg({"sales_units": "sum"}).collect()[0][0] or 0
+            ).select("product_id").distinct()
+            
+            # Count products that have non-eligible records
+            combined_filtered_products = products_with_non_eligible_records.count()
+            
+            # Count sales units from products that have non-eligible records
+            combined_filtered_sales = processed_df.join(
+                products_with_non_eligible_records, "product_id", "inner"
+            ).agg({"sales_units": "sum"}).collect()[0][0] or 0
             
             combined_product_pct = (combined_filtered_products / total_products * 100) if total_products > 0 else 0
             combined_sales_pct = (combined_filtered_sales / total_sales * 100) if total_sales > 0 else 0
             
-            logger.info(f"    [COMBINED] Total filtered products: {combined_filtered_products:,} ({combined_product_pct:.1f}% of total)")
-            logger.info(f"    [COMBINED] Total filtered sales units: {combined_filtered_sales:,} ({combined_sales_pct:.1f}% of total)")
+            logger.info(f"    [COMBINED] Products with non-eligible records: {combined_filtered_products:,} ({combined_product_pct:.1f}% of total)")
+            logger.info(f"    [COMBINED] Sales units from non-eligible products: {combined_filtered_sales:,} ({combined_sales_pct:.1f}% of total)")
+            
+            # Calculate remaining (eligible) products and sales
+            remaining_products = total_products - combined_filtered_products
+            remaining_sales = total_sales - combined_filtered_sales
+            remaining_product_pct = (remaining_products / total_products * 100) if total_products > 0 else 0
+            remaining_sales_pct = (remaining_sales / total_sales * 100) if total_sales > 0 else 0
+            
+            logger.info(f"    [REMAINING] Eligible products: {remaining_products:,} ({remaining_product_pct:.1f}% of total)")
+            logger.info(f"    [REMAINING] Eligible sales units: {remaining_sales:,} ({remaining_sales_pct:.1f}% of total)")
         
-        logger.info(f"    [TOTALS] Total products: {total_products:,}")
-        logger.info(f"    [TOTALS] Total sales units: {total_sales:,}")
+        logger.info(f"    [ORIGINAL] Total products: {total_products:,}")
+        logger.info(f"    [ORIGINAL] Total sales units: {total_sales:,}")
+        
+        # Add detailed category breakdown for debugging
+        logger.info("  [DEBUG] Category breakdown:")
+        
+        # Age category breakdown
+        age_breakdown = processed_df.groupBy("age_category").agg(
+            F.countDistinct("product_id").alias("product_count"),
+            F.sum("sales_units").alias("sales_units")
+        ).collect()
+        
+        for row in age_breakdown:
+            logger.info(f"    [AGE] {row['age_category']}: {row['product_count']} products, {row['sales_units']} sales units")
+        
+        # Sales category breakdown
+        sales_breakdown = processed_df.groupBy("sales_category").agg(
+            F.countDistinct("product_id").alias("product_count"),
+            F.sum("sales_units").alias("sales_units")
+        ).collect()
+        
+        for row in sales_breakdown:
+            logger.info(f"    [SALES] {row['sales_category']}: {row['product_count']} products, {row['sales_units']} sales units")
         
     except Exception as e:
         logger.warning(f"    [WARNING] Could not calculate filtered category statistics: {e}")
