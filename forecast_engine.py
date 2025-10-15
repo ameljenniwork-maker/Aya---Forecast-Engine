@@ -68,7 +68,7 @@ def main():
     
     # Ensure we are using the latest on-disk configuration and log its origin
     try:
-        CONFIG = importlib.reload(CONFIG)
+        importlib.reload(CONFIG)
         logger.info(f"[CONFIG FILE] Loaded from: {getattr(CONFIG, '__file__', 'unknown')}")
         logger.info(f"[CONFIG VALUES] HISTORY_END_DATE={CONFIG.HISTORY_END_DATE}, FORECAST_START_DATE={CONFIG.FORECAST_CONFIG['FORECAST_START_DATE']}")
     except Exception as e:
