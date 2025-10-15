@@ -40,7 +40,7 @@ TABLES = {
 # DATA PROCESSING PARAMETERS
 # =============================================================================
 # Date ranges for data processing
-HISTORY_START_DATE = "2025-04-20"  # Start of sales data
+HISTORY_START_DATE = "2025-04-21"  # Start of sales data
 HISTORY_END_DATE = "2025-09-30"    # End of historical data (actual data availability)
 # Compute forecast start date as the day after HISTORY_END_DATE (keep as string)
 _history_end_dt = datetime.strptime(HISTORY_END_DATE, "%Y-%m-%d").date()
@@ -94,11 +94,11 @@ SALES_CATEGORY_SUMMARY = {
 # Categories that are NOT eligible for forecasting
 NON_ELIGIBLE_CATEGORIES = {
     "age_categories": [
-        # "01| New"  # Products in their first week - TEMPORARILY DISABLED FOR DEBUGGING
+        "00| Draft",  # Products in draft state
+        "01| New"     # Products in their first week
     ],
     "sales_categories": [
-        # "01| Dead",  # Products with no recent sales - TEMPORARILY DISABLED FOR DEBUGGING
-        # "00| Draft"  # Products in draft state - TEMPORARILY DISABLED FOR DEBUGGING
+        "01| Dead"    # Products with no recent sales
     ]
 }
 

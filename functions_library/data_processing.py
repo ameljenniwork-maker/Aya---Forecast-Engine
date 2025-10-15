@@ -43,13 +43,8 @@ def read_data(spark: SparkSession) -> tuple[DataFrame, DataFrame, DataFrame]:
         logger.info(f"    Reading sales data from {CONFIG.HISTORY_START_DATE} onwards...")
         sales_df = client.read_sales_data(CONFIG.HISTORY_START_DATE, spark)
         
-        # TEMPORARY DEBUG: Filter to specific product ID for faster debugging
-        debug_product_id = '0e0a1c0d-6a98-4d33-b2dc-66d810894266'
-        logger.info(f"    [DEBUG] Filtering to product ID: {debug_product_id}")
-        sales_df = sales_df.filter(sales_df.product_id == debug_product_id)
-        
         sales_count = sales_df.count()
-        logger.info(f"    [OK] Sales data: {sales_count} records (filtered to debug product)")
+        logger.info(f"    [OK] Sales data: {sales_count} records")
         
         # Read products data
         logger.info("    Reading products data...")
@@ -322,8 +317,13 @@ def process_calendar_effects(calendar_effects_df: DataFrame, sales_df: DataFrame
             logger.info("    Processing calendar effects pivot...")
             try:
                 # Get all unique dates from sales data to ensure we don't lose any dates
+                # Ensure date column is properly formatted
                 all_dates = sales_df.select("date").distinct()
+                all_dates = all_dates.filter(F.col("date").isNotNull())  # Remove null dates
                 logger.info(f"    [DEBUG] All unique sales dates: {all_dates.count()}")
+                
+                # Ensure calendar effects date column is properly formatted
+                calendar_effects_df = calendar_effects_df.filter(F.col("date").isNotNull())  # Remove null dates
                 
                 # Pivot calendar effects
                 calendar_effects_pivot = calendar_effects_df.groupBy("date").pivot("calendar_effect_day").agg(F.lit(1))
@@ -331,9 +331,23 @@ def process_calendar_effects(calendar_effects_df: DataFrame, sales_df: DataFrame
                 logger.info(f"    [DEBUG] Calendar effects after pivot: {calendar_effects_pivot.count()}")
                 
                 # Join with all sales dates to ensure we have all dates (even those without calendar effects)
+                # Use left join to preserve all sales dates
                 calendar_effects_df = all_dates.join(calendar_effects_pivot, "date", "left")
                 calendar_effects_df = calendar_effects_df.fillna(0)
                 logger.info(f"    [DEBUG] Calendar effects after join with all dates: {calendar_effects_df.count()}")
+                
+                # Verify we didn't lose any dates
+                if calendar_effects_df.count() != all_dates.count():
+                    logger.warning(f"    [WARNING] Date count mismatch: expected {all_dates.count()}, got {calendar_effects_df.count()}")
+                    # Log missing dates for debugging
+                    missing_dates = all_dates.subtract(calendar_effects_df.select("date"))
+                    missing_count = missing_dates.count()
+                    if missing_count > 0:
+                        logger.warning(f"    [WARNING] {missing_count} dates are missing from calendar effects")
+                        # Show first few missing dates
+                        missing_sample = missing_dates.limit(5).collect()
+                        for row in missing_sample:
+                            logger.warning(f"    [WARNING] Missing date: {row.date}")
                 
                 logger.info("    [OK] Calendar effects pivot completed")
             except Exception as e:
@@ -476,29 +490,6 @@ def process_data(spark: SparkSession) -> DataFrame:
         total_records = sales_df.count()
         total_sales = sales_df.agg(F.sum("sales_units")).collect()[0][0] or 0
         logger.info(f"Processing summary: {total_records} records, {total_sales} total sales units")
-        
-        # Add category distribution summary for debugging
-        logger.info("  [DEBUG] Final category distribution:")
-        try:
-            # Age categories: distinct products and total sales units
-            age_dist = sales_df.groupBy("age_category").agg(
-                F.countDistinct("product_id").alias("distinct_products"),
-                F.sum("sales_units").alias("total_sales_units")
-            ).orderBy("age_category").collect()
-            logger.info("    [AGE] Age category breakdown:")
-            for row in age_dist:
-                logger.info(f"    [AGE] {row.age_category}: {row.distinct_products} products, {row.total_sales_units} sales units")
-            
-            # Sales categories: distinct products and total sales units
-            sales_dist = sales_df.groupBy("sales_category").agg(
-                F.countDistinct("product_id").alias("distinct_products"),
-                F.sum("sales_units").alias("total_sales_units")
-            ).orderBy("sales_category").collect()
-            logger.info("    [SALES] Sales category breakdown:")
-            for row in sales_dist:
-                logger.info(f"    [SALES] {row.sales_category}: {row.distinct_products} products, {row.total_sales_units} sales units")
-        except Exception as e:
-            logger.warning(f"    Could not get category distribution: {e}")
         
         # Clear any implicit caching
         sales_df.unpersist()

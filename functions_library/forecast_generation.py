@@ -21,8 +21,8 @@ from functions_library.supabase_connection import SupabaseClient
 import configuration as CONFIG
 from functions_library.logger_configuration import get_logger
 
-# Module-level logger
-logger = get_logger(__name__)
+# Module-level logger - use the main logger to ensure it writes to the same file
+logger = get_logger("aya_forecast")
 
 def forecast_demand(processed_data: DataFrame, spark: SparkSession = None, run_id: int = None) -> DataFrame:
     """
@@ -151,6 +151,29 @@ def filter_non_eligible_categories(processed_data: DataFrame, forecast_start_dat
     processed_subset = processed_subset.filter(F.col("date") <= F.lit(CONFIG.HISTORY_END_DATE))
     date_filtering_time = time.time() - date_filtering_start
     logger.info(f"Date filtering: {date_filtering_time:.2f} seconds")
+    
+    # Log category distribution after filtering to history end date
+    logger.info("  [DEBUG] Category distribution after filtering to history end date:")
+    try:
+        # Age categories: distinct products and total sales units
+        age_dist = processed_subset.groupBy("age_category").agg(
+            F.countDistinct("product_id").alias("distinct_products"),
+            F.sum("sales_units").alias("total_sales_units")
+        ).orderBy("age_category").collect()
+        logger.info("    [AGE] Age category breakdown:")
+        for row in age_dist:
+            logger.info(f"    [AGE] {row.age_category}: {row.distinct_products} products, {row.total_sales_units} sales units")
+        
+        # Sales categories: distinct products and total sales units
+        sales_dist = processed_subset.groupBy("sales_category").agg(
+            F.countDistinct("product_id").alias("distinct_products"),
+            F.sum("sales_units").alias("total_sales_units")
+        ).orderBy("sales_category").collect()
+        logger.info("    [SALES] Sales category breakdown:")
+        for row in sales_dist:
+            logger.info(f"    [SALES] {row.sales_category}: {row.distinct_products} products, {row.total_sales_units} sales units")
+    except Exception as e:
+        logger.warning(f"    Could not get category distribution: {e}")
     
     # Step 3: Filter out non-eligible products based on their categories on history end date
     product_filtering_start = time.time()
@@ -305,7 +328,7 @@ def filter_non_eligible_categories(processed_data: DataFrame, forecast_start_dat
     logger.info(f"Found {qualified_count} qualified products for forecasting.")
     logger.info(f"Total filtering time: {total_filtering_time:.2f} seconds")
     
-    return qualified_data
+    return qualified_products
 
 def get_forecast_params() -> Dict[str, Any]:
     """
@@ -736,7 +759,7 @@ def write_forecast_movement(forecast_data: DataFrame, run_id: int, client: Supab
     # client.write_table(forecast_df, "forecast_movement", if_exists="append")
     
 if __name__ == "__main__":
-    print("=== Forecast Demand Module ===")
-    print("This module provides demand forecasting functionality.")
-    print("Database write operations are currently commented out.")
-    print("Run forecast_demand() to start the forecasting process.")
+    logger.info("=== Forecast Demand Module ===")
+    logger.info("This module provides demand forecasting functionality.")
+    logger.info("Database write operations are currently commented out.")
+    logger.info("Run forecast_demand() to start the forecasting process.")

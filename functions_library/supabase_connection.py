@@ -17,9 +17,10 @@ from supabase import create_client, Client
 
 # Local imports
 import configuration as CONFIG
+from functions_library.logger_configuration import get_logger
 
-# Module-level logger
-logger = logging.getLogger(__name__)
+# Module-level logger - use the main logger to ensure it writes to the same file
+logger = get_logger("aya_forecast")
 
 class SupabaseClient:
     """
