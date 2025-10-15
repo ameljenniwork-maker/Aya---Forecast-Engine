@@ -59,68 +59,6 @@ COLORS = {
 }
 
 
-def summarize_runs_max_date(storage_client, spark) -> pd.DataFrame:
-    """
-    List all forecast runs in storage, load each run parquet, and compute the
-    maximum available date per run.
-
-    Args:
-        storage_client: Instance providing list_forecast_runs() and download_forecast_run(run_id, spark)
-        spark: Active SparkSession
-
-    Returns:
-        pandas.DataFrame with columns: run_id, filename, last_modified, max_date
-        (sorted by run_id ascending). Empty DataFrame if no runs found.
-    """
-    try:
-        runs: List[Dict[str, Any]] = storage_client.list_forecast_runs()
-    except Exception:
-        runs = []
-
-    if not runs:
-        return pd.DataFrame(columns=["run_id", "filename", "last_modified", "max_date"]).astype({"run_id": "int64"})
-
-    results: List[Dict[str, Any]] = []
-
-    for run in runs:
-        run_id = run.get("run_id")
-        filename = run.get("filename")
-        last_modified = run.get("last_modified")
-
-        try:
-            sdf: Optional[DataFrame] = storage_client.download_forecast_run(run_id, spark)
-            if sdf is None:
-                results.append({
-                    "run_id": run_id,
-                    "filename": filename,
-                    "last_modified": last_modified,
-                    "max_date": None,
-                })
-                continue
-
-            # Compute max date; cast to date in case source is string
-            sdf_with_date = sdf.withColumn("date", F.to_date(F.col("date")))
-            max_date_row = sdf_with_date.agg(F.max(F.col("date")).alias("max_date")).collect()[0]
-            max_date_value = max_date_row["max_date"]
-
-            results.append({
-                "run_id": run_id,
-                "filename": filename,
-                "last_modified": last_modified,
-                "max_date": pd.to_datetime(max_date_value) if max_date_value is not None else None,
-            })
-        except Exception:
-            results.append({
-                "run_id": run_id,
-                "filename": filename,
-                "last_modified": last_modified,
-                "max_date": None,
-            })
-
-    df = pd.DataFrame(results)
-    if not df.empty:
-        df = df.sort_values("run_id").reset_index(drop=True)
-    return df
 
 
 def load_latest_per_date_forecasts(storage_client, spark) -> DataFrame:

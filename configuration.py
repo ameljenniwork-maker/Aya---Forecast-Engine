@@ -41,7 +41,7 @@ TABLES = {
 # =============================================================================
 # Date ranges for data processing
 HISTORY_START_DATE = "2025-04-21"  # Start of sales data
-HISTORY_END_DATE = "2025-08-29"    # End of historical data (actual data availability)
+HISTORY_END_DATE = "2025-10-13"    # End of historical data (actual data availability)
 # Compute forecast start date as the day after HISTORY_END_DATE (keep as string)
 _history_end_dt = datetime.strptime(HISTORY_END_DATE, "%Y-%m-%d").date()
 FORECAST_START_DATE = (_history_end_dt + timedelta(days=1)).strftime("%Y-%m-%d")
