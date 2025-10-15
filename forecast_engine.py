@@ -33,22 +33,19 @@ def get_next_run_id(storage_client):
     try:
         # Get existing runs
         existing_runs = storage_client.list_forecast_runs()
-        print(f"DEBUG: Found {len(existing_runs)} existing runs: {existing_runs}")
         
         if not existing_runs:
             # No existing runs, start with 1
-            print("DEBUG: No existing runs found, starting with run ID 1")
             return 1
         
         # Find the highest run_id and add 1
         max_run_id = max(run['run_id'] for run in existing_runs)
         next_run_id = max_run_id + 1
-        print(f"DEBUG: Max existing run ID: {max_run_id}, next run ID: {next_run_id}")
         return next_run_id
         
     except Exception as e:
         # If there's an error, fall back to timestamp-based ID
-        print(f"Warning: Could not get incremental run ID, using timestamp: {e}")
+        # Fallback to timestamp-based ID on error
         return int(time.time())
 
 def main():
