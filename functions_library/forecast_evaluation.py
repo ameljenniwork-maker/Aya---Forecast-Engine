@@ -737,8 +737,12 @@ def plot_accuracy_distribution(
             return (n, n)
         return (math.nan, math.nan)
 
-    # Determine good bounds
-    DEFAULT_LOWER, DEFAULT_UPPER = -20, 20
+    # Determine good bounds - different defaults for bias vs error
+    if method == "bias":
+        DEFAULT_LOWER, DEFAULT_UPPER = -20, 30  # Bias: -20% to +30%
+    else:  # method == "error"
+        DEFAULT_LOWER, DEFAULT_UPPER = -10, 15  # Error: -10 to +15 units
+    
     if good_thresholds and on_forecast_sales_category in good_thresholds:
         raw_low, raw_high = good_thresholds[on_forecast_sales_category]
         if isinstance(raw_low, (int, float)) and isinstance(raw_high, (int, float)) and raw_low >= 0 and raw_high >= 0:
