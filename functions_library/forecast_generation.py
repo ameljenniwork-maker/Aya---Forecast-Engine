@@ -414,7 +414,6 @@ def run_prophet_forecast(qualified_data: DataFrame, params: Dict) -> DataFrame:
     # Step 1: Get unique products to process in batches
     logger.info("  [PROPHET] Starting Prophet forecasting pipeline")
     unique_products_start = time.time()
-    logger.info("  [PROPHET] Getting unique product IDs")
     unique_products = qualified_data.select("product_id").distinct().collect()
     unique_products_time = time.time() - unique_products_start
     product_ids = [row.product_id for row in unique_products]
@@ -422,7 +421,6 @@ def run_prophet_forecast(qualified_data: DataFrame, params: Dict) -> DataFrame:
     
     # Debug: Check qualified data size
     qualified_data_count_start = time.time()
-    logger.info("  [PROPHET] Counting qualified data records")
     qualified_data_count = qualified_data.count()
     qualified_data_count_time = time.time() - qualified_data_count_start
     logger.info(f"  [PROPHET] Qualified data records: {qualified_data_count} (took {qualified_data_count_time:.2f}s)")
@@ -445,14 +443,13 @@ def run_prophet_forecast(qualified_data: DataFrame, params: Dict) -> DataFrame:
         batch_products = product_ids[i:i + batch_size]
         batch_num = i//batch_size + 1
         total_batches = (len(product_ids) + batch_size - 1)//batch_size
-        logger.info(f"PROPHET: Starting batch {batch_num}/{total_batches} with {len(batch_products)} products")
-        logger.info(f"Processing batch {batch_num}/{total_batches} ({len(batch_products)} products)")
+        # Batch start
         
         # Filter to current batch
         batch_filter_start = time.time()
         batch_data = qualified_data.filter(F.col("product_id").isin(batch_products))
         batch_filter_time = time.time() - batch_filter_start
-        logger.info(f"PROPHET: Batch {batch_num} filtering took {batch_filter_time:.2f}s")
+        # Batch filter time
         
         # Convert to pandas for Prophet processing
         pandas_start = time.time()
@@ -461,8 +458,7 @@ def run_prophet_forecast(qualified_data: DataFrame, params: Dict) -> DataFrame:
         df['date'] = pd.to_datetime(df['date'])
         df = df.rename(columns={'date': 'ds', 'sales_units': 'sales_units'})
         pandas_time = time.time() - pandas_start
-        logger.info(f"PROPHET: Batch {batch_num} pandas conversion took {pandas_time:.2f}s")
-        logger.info(f"  Batch data conversion to pandas: {pandas_time:.2f} seconds")
+        # Pandas conversion time
         
         # Step 2: Ensure regressors are numeric
         regressor_start = time.time()
@@ -475,14 +471,13 @@ def run_prophet_forecast(qualified_data: DataFrame, params: Dict) -> DataFrame:
             if col in df.columns:
                 df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
         regressor_time = time.time() - regressor_start
-        logger.info(f"  Batch regressor preparation: {regressor_time:.2f} seconds")
+        # Regressor prep time
         
         # Step 3: Process each product group in this batch
         processing_start = time.time()
         
         # Debug: Check available columns
-        logger.info(f"  Available columns in batch df: {list(df.columns)}")
-        logger.info(f"  Batch DataFrame shape: {df.shape}")
+        # Reduced verbosity: skip column listing per batch
         
         # Check for missing required columns
         required_cols = ['product_id', 'on_forecast_age_sales_category', 'on_forecast_age_category', 'on_forecast_sales_category', 'style']
@@ -496,13 +491,13 @@ def run_prophet_forecast(qualified_data: DataFrame, params: Dict) -> DataFrame:
         processed_products = 0
         skipped_products = 0
         
-        logger.info(f"  Processing {total_products} products in this batch...")
+        # Skip per-product progress logs
         
         # Group by product_id only
         for product_id, pdf in product_groups:
             product_start_time = time.time()
             processed_products += 1
-            logger.info(f"PROPHET: Batch {batch_num} - Processing product {processed_products}/{total_products}: {product_id}")
+            # Skip per-product id log
             
             # Log progress every 10 products
             if processed_products % 10 == 0:
@@ -541,10 +536,7 @@ def run_prophet_forecast(qualified_data: DataFrame, params: Dict) -> DataFrame:
             train = pdf[pdf['ds'] < pd.to_datetime(FORECAST_START_DATE)].tail(cfg["LOOK_BACK_HORIZON"]).copy()
             train = train.rename(columns={"sales_units": "y"})
             
-            logger.info(f"      Training data: {len(train)} records (forecast_start={FORECAST_START_DATE}, look_back={cfg['LOOK_BACK_HORIZON']})")
-            logger.info(f"      Training columns: {list(train.columns)}")
-            logger.info(f"      Training sales sum: {train['y'].sum()}, mean: {train['y'].mean()}")
-            logger.info(f"      Training date range: {train['ds'].min()} to {train['ds'].max()}")
+            # Skip detailed training stats
             
             if len(train) < MIN_OBS_FOR_PROPHET:
                 logger.warning(f"      Insufficient data for {product_id} ({len(train)} obs < {MIN_OBS_FOR_PROPHET} required), skipping.")
@@ -553,10 +545,7 @@ def run_prophet_forecast(qualified_data: DataFrame, params: Dict) -> DataFrame:
                 
             if "y" in train.columns:
                 zeros_ratio = (train["y"].to_numpy() == 0).mean()
-                logger.info(f"      [DATA] Zero ratio in training: {zeros_ratio:.2f}")
-                logger.info(f"      [DATA] Training data sample: {train[['ds', 'y']].head(3).to_dict()}")
-                logger.info(f"      [DATA] Training data shape: {train.shape}")
-                logger.info(f"      [DATA] Training columns: {list(train.columns)}")
+                # Skip per-product data diagnostics
             else:
                 zeros_ratio = 0
                 logger.warning(f"      [ERROR] No 'y' column in training data!")
@@ -564,7 +553,7 @@ def run_prophet_forecast(qualified_data: DataFrame, params: Dict) -> DataFrame:
             # Use Croston for high zero ratio OR insufficient data (faster than Prophet)
             croston_threshold = CONFIG.FORECAST_CONFIG["CORSTON_ZEROS_RATIO"]
             if zeros_ratio >= croston_threshold:
-                logger.info(f"      [CROSTON] Using Croston method for {product_id} (zero ratio: {zeros_ratio:.2f}, data points: {len(train)})")
+                # Skip per-product Croston info
                 fc = croston_sba(train['y'].values, FORECAST_HORIZON)
                 fc = fc * cfg.get("OVER_FORECAST_FACTOR", 1.0)
                 df_res = pd.DataFrame({
@@ -578,7 +567,7 @@ def run_prophet_forecast(qualified_data: DataFrame, params: Dict) -> DataFrame:
                     "forecast": fc
                 })
                 all_forecasts.append(df_res)
-                logger.info(f"      [CROSTON] Added Croston forecast for {product_id}")
+                # Skip per-product Croston append log
                 continue
             
             # Future dataframe
@@ -589,10 +578,7 @@ def run_prophet_forecast(qualified_data: DataFrame, params: Dict) -> DataFrame:
             future = extrapolate_regressors(pdf, future, ALL_REGRESSORS)
             
             # Try Prophet first, fallback to Croston if it fails
-            logger.info(f"      [PROPHET] Starting Prophet attempt for {product_id}...")
-            logger.info(f"      [PROPHET] Training data shape: {train.shape}")
-            logger.info(f"      [PROPHET] Training data types: {train.dtypes.to_dict()}")
-            logger.info(f"      [PROPHET] Zero ratio: {zeros_ratio:.2f} (threshold: {croston_threshold})")
+            # Skip per-product Prophet attempt details
             
             try:
                 from prophet import Prophet
@@ -606,8 +592,7 @@ def run_prophet_forecast(qualified_data: DataFrame, params: Dict) -> DataFrame:
                     if col not in ['ds', 'y']:
                         train_clean[col] = pd.to_numeric(train_clean[col], errors='coerce').fillna(0)
                 
-                logger.info(f"    Clean training data shape: {train_clean.shape}")
-                logger.info(f"    Clean training columns: {list(train_clean.columns)}")
+                # Skip per-product clean data details
                 
                 # Configure Prophet model (matching working notebook implementation)
                 model = Prophet(
@@ -622,13 +607,11 @@ def run_prophet_forecast(qualified_data: DataFrame, params: Dict) -> DataFrame:
                 # Add regressors
                 for reg in ALL_REGRESSORS:
                     if reg in train_clean.columns and reg not in ['ds', 'y']:
-                        logger.info(f"    Adding regressor: {reg}")
+                        # Skip per-regressor logging
                         model.add_regressor(reg)
                 
                 # Fit the model
-                logger.info(f"    Fitting Prophet model...")
                 model.fit(train_clean)
-                logger.info(f"    Prophet model fitted successfully")
                 
                 # Prepare future data
                 future_clean = future[['ds'] + [r for r in ALL_REGRESSORS if r in future.columns]].copy()
@@ -639,18 +622,12 @@ def run_prophet_forecast(qualified_data: DataFrame, params: Dict) -> DataFrame:
                     if col != 'ds':
                         future_clean[col] = pd.to_numeric(future_clean[col], errors='coerce').fillna(0)
                 
-                logger.info(f"    Future data shape: {future_clean.shape}")
-                logger.info(f"    Future columns: {list(future_clean.columns)}")
+                # Skip future data details
                 
                 # Make predictions
-                logger.info(f"    Making predictions...")
                 forecast = model.predict(future_clean)
                 yhat = forecast['yhat'].values
-                logger.info(f"    Predictions made: {len(yhat)} values, range: {yhat.min():.2f} to {yhat.max():.2f}")
-                logger.info(f"    Forecast DataFrame shape: {forecast.shape}")
-                logger.info(f"    Forecast columns: {list(forecast.columns)}")
-                logger.info(f"    Sample forecast values: {yhat[:5]}")
-                logger.info(f"    Contains NaN: {np.isnan(yhat).any()}")
+                # Skip prediction debug details
                 
                 # Apply over-forecast factor and ensure non-negative
                 yhat = np.array(yhat) * cfg.get("OVER_FORECAST_FACTOR", 1.0)
@@ -667,17 +644,14 @@ def run_prophet_forecast(qualified_data: DataFrame, params: Dict) -> DataFrame:
                     "forecast": yhat
                 })
                 
-                logger.info(f"      [PROPHET] SUCCESS: Using Prophet method for {product_id}")
-                logger.info(f"      [PROPHET] Forecast values: {yhat[:5]}...")
+                # Skip per-product success log
                 
             except Exception as e:
-                logger.warning(f"      [PROPHET] FAILED for {product_id}: {str(e)}")
-                logger.warning(f"      [PROPHET] Error type: {type(e).__name__}")
-                import traceback
-                logger.warning(f"      [PROPHET] Traceback: {traceback.format_exc()}")
+                # Keep failure type only
+                logger.warning(f"      [PROPHET] FAILED for product; falling back to Croston: {type(e).__name__}")
                 
                 # Fallback to Croston
-                logger.info(f"      [FALLBACK] Using Croston fallback for {product_id}")
+                # Skip per-product fallback log
                 fc = croston_sba(train['y'].values, FORECAST_HORIZON)
                 fc = fc * cfg.get("OVER_FORECAST_FACTOR", 1.0)
                 
@@ -691,15 +665,13 @@ def run_prophet_forecast(qualified_data: DataFrame, params: Dict) -> DataFrame:
                     "date": pd.date_range(start=FORECAST_START_DATE, periods=FORECAST_HORIZON).strftime('%Y-%m-%d'),
                     "forecast": fc
                 })
-                logger.info(f"      [FALLBACK] Added Croston forecast for {product_id}")
+                # Skip per-product fallback append log
             
             all_forecasts.append(df_res)
         
         processing_time = time.time() - processing_start
         batch_total_time = time.time() - batch_start_time
-        logger.info(f"PROPHET: Batch {batch_num} completed - Processing: {processing_time:.2f}s, Total: {batch_total_time:.2f}s")
-        logger.info(f"  Batch processing: {processing_time:.2f} seconds")
-        logger.info(f"  Processed {len(batch_products)} products in this batch")
+        logger.info(f"PROPHET: Batch {batch_num}/{total_batches} completed (products={len(batch_products)}). Processing: {processing_time:.2f}s, Total: {batch_total_time:.2f}s")
     
     logger.info(f"Generated {len(all_forecasts)} total forecast groups")
     
