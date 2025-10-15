@@ -133,14 +133,30 @@ class SupabaseClient:
                 result = query.execute()
                 
                 if not result.data:
+                    logger.info(f"No data returned at offset {offset}, stopping pagination")
                     break
                     
                 all_data.extend(result.data)
                 logger.info(f"Read batch: {len(result.data)} records (total: {len(all_data)})")
                 
+                # Debug: Show date range of this batch
+                if result.data:
+                    dates = [row.get('day', 'N/A') for row in result.data]
+                    logger.info(f"  Batch date range: {min(dates)} to {max(dates)}")
+                
                 # If we got fewer records than batch_size, we've reached the end
                 if len(result.data) < batch_size:
+                    logger.info(f"Got {len(result.data)} records (less than batch_size {batch_size}), stopping pagination")
                     break
+                
+                # Additional safety check: if we got exactly batch_size records, check if there's more data
+                # by trying to fetch one more record
+                if len(result.data) == batch_size:
+                    test_query = query.range(offset + batch_size, offset + batch_size)
+                    test_result = test_query.execute()
+                    if not test_result.data:
+                        logger.info(f"Got exactly {batch_size} records and no more data available, stopping pagination")
+                        break
                     
                 offset += batch_size
             
@@ -165,8 +181,8 @@ class SupabaseClient:
         if client is None:
             client = self
         
-        # Apply date filter to get data from start_date onwards (no end date filter)
-        logger.info(f"Reading sales data from {start_date} onwards (no end date filter)")
+        # Apply date filter to get data from start_date onwards (all available data)
+        logger.info(f"Reading sales data from {start_date} onwards (all available data)")
         filters = {
             "day_gte": f"gte.{start_date}"
         }

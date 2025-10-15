@@ -117,9 +117,10 @@ def generate_categories(sales_df: DataFrame, products_df: DataFrame) -> DataFram
         
         # Simple age category logic
         sales_df = sales_df.withColumn("age_category",
-            F.when(F.col("day_in_stock") <= 7, "01| New")
-            .when(F.col("day_in_stock") <= 14, "02| Launch")
-            .when(F.col("day_in_stock") <= 30, "03| Growth")
+            F.when(F.col("day_in_stock") == 1, "00| Draft")
+            .when(F.col("day_in_stock") <= 8, "01| New")
+            .when(F.col("day_in_stock") <= 15, "02| Launch")
+            .when(F.col("day_in_stock") <= 31, "03| Growth")
             .otherwise("04| Mature")
         )
         logger.info("    [OK] Age categories created using simple logic")
@@ -143,7 +144,8 @@ def generate_categories(sales_df: DataFrame, products_df: DataFrame) -> DataFram
         
         # Simple sales category logic
         sales_df = sales_df.withColumn("sales_category",
-            F.when(F.col("recent_sales_units") == 0, "01| Dead")
+            F.when(F.col("day_in_stock") == 1, "00| Draft")
+            .when((F.col("day_in_stock") > 1) & (F.col("recent_sales_units") == 0), "01| Dead")
             .when(F.col("recent_sales_units") < 14, "02| Very Low")
             .when(F.col("recent_sales_units") < 28, "03| Low")
             .when(F.col("recent_sales_units") < 56, "04| Alive")

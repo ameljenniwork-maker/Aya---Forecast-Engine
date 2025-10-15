@@ -49,6 +49,19 @@ jupyter notebook evaluate_forecast.ipynb
 - **Dual forecasting methods**: Prophet for complex patterns, Croston for sparse data
 - **Performance evaluation**: Bias analysis, error distribution, category performance
 
+## Inputs and Outputs
+
+### Inputs
+- **Historical sales data**: Product sales history from Supabase database "Aya Supply"
+- **Product information**: SKU details, categories, and lifecycle status from "Aya Supply"
+- **Calendar data**: Islamic holidays, salary periods, and promotional events from "Aya Supply"
+- **Configuration parameters**: Forecasting horizons, model parameters, and category thresholds
+
+### Outputs
+- **Preprocessed features**: Parquet files containing processed data up to history end date
+- **Demand forecasts**: Incremental forecast runs saved in Supabase Storage "demand-forecast" bucket
+
+
 ## Configuration
 
 Key settings in `configuration.py`:
