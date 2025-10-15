@@ -45,6 +45,13 @@ def read_data(spark: SparkSession) -> tuple[DataFrame, DataFrame, DataFrame]:
         
         sales_count = sales_df.count()
         logger.info(f"    [OK] Sales data: {sales_count} records")
+        # Log min/max date to validate full range
+        try:
+            # sales_movement uses 'day' as the date column
+            date_min_max = sales_df.select(F.min("day"), F.max("day")).collect()[0]
+            logger.info(f"    [DATE RANGE] Sales data span: {date_min_max[0]} to {date_min_max[1]}")
+        except Exception as e:
+            logger.warning(f"    [DATE RANGE] Could not compute sales date range: {e}")
         
         # Read products data
         logger.info("    Reading products data...")

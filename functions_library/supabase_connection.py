@@ -91,7 +91,8 @@ class SupabaseClient:
             return False
 
     def batch_read_table(self, table_name: str, spark: SparkSession, 
-                    filters: Optional[Dict] = None, batch_size: int = 5000) -> DataFrame:
+                    filters: Optional[Dict] = None, batch_size: int = 5000,
+                    order_by: Optional[str] = None, desc: bool = False) -> DataFrame:
         """
         Read all data from a table using pagination
         
@@ -127,6 +128,14 @@ class SupabaseClient:
                         else:
                             query = query.eq(key, value)
                 
+                # Ensure deterministic ordering for pagination when requested
+                if order_by:
+                    try:
+                        query = query.order(order_by, desc=desc)
+                    except Exception:
+                        # If specified column does not exist, skip ordering
+                        logger.warning(f"Could not order by {order_by} on table {table_name}, proceeding without ordering")
+
                 # Add pagination
                 query = query.range(offset, offset + batch_size - 1)
                 
@@ -188,7 +197,7 @@ class SupabaseClient:
             "day_gte": f"gte.{start_date}"
         }
         
-        return self.batch_read_table(CONFIG.TABLES["sales_movement"], spark, filters=filters)
+        return self.batch_read_table(CONFIG.TABLES["sales_movement"], spark, filters=filters, order_by="day", desc=False)
 
     def read_products(self, spark: SparkSession, client: "SupabaseClient" = None) -> DataFrame:
         """Read products data and return Spark DataFrame"""
@@ -205,7 +214,7 @@ class SupabaseClient:
             client = self
         
         logger.info("Reading calendar effects data")
-        return self.batch_read_table(CONFIG.TABLES["calendar_effects"], spark)
+        return self.batch_read_table(CONFIG.TABLES["calendar_effects"], spark, order_by="date", desc=False)
 
     def upload_processed_features(self, data: pd.DataFrame) -> bool:
         """

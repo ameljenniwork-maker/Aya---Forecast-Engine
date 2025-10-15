@@ -435,7 +435,7 @@ def run_prophet_forecast(qualified_data: DataFrame, params: Dict) -> DataFrame:
     
     # Initialize variables for the current batching approach (to be replaced)
     all_forecasts = []
-    batch_size = 20  # Reduced batch size for better memory management
+    batch_size = 5  # Further reduce batch size to avoid Python worker timeouts on Windows
     
     # TODO: Replace this batching approach with parallel processing using mapPartitions
     # Current approach: Sequential processing in batches (SLOW)
