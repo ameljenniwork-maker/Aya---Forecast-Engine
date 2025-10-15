@@ -125,14 +125,14 @@ FORECAST_CONFIG = {
         },
         "02| LAUNCH_02| MEDIUM": {
             "LOOK_BACK_HORIZON": 10,
-            "OVER_FORECAST_FACTOR": 1.1,
+            "OVER_FORECAST_FACTOR": 1.15,
             "NUMERIC_REGRESSORS": [],
             "CATEGORICAL_REGRESSORS": [],
             "changepoint_prior_scale": 0.08
         },
         "02| LAUNCH_03| HIGH": {
             "LOOK_BACK_HORIZON": 7,
-            "OVER_FORECAST_FACTOR": 1.15,
+            "OVER_FORECAST_FACTOR": 1.2,
             "NUMERIC_REGRESSORS": [],
             "CATEGORICAL_REGRESSORS": [],
             "changepoint_prior_scale": 0.1
@@ -147,7 +147,7 @@ FORECAST_CONFIG = {
         },
         "03| GROWTH_02| MEDIUM": {
             "LOOK_BACK_HORIZON": 30,
-            "OVER_FORECAST_FACTOR": 1.2,
+            "OVER_FORECAST_FACTOR": 1.3,
             "NUMERIC_REGRESSORS": [],
             "CATEGORICAL_REGRESSORS": [
                 "EID_ADHA_DAY_0", "EID_ADHA_DAY_PLUS_1",
@@ -162,7 +162,7 @@ FORECAST_CONFIG = {
         },
         "03| GROWTH_03| HIGH": {
             "LOOK_BACK_HORIZON": 30,
-            "OVER_FORECAST_FACTOR": 1.2,
+            "OVER_FORECAST_FACTOR": 1.3,
             "NUMERIC_REGRESSORS": [],
             "CATEGORICAL_REGRESSORS": [
                 "EID_ADHA_DAY_0", "EID_ADHA_DAY_PLUS_1",
@@ -193,7 +193,7 @@ FORECAST_CONFIG = {
         },
         "04| MATURE_02| MEDIUM": {
             "LOOK_BACK_HORIZON": 60,
-            "OVER_FORECAST_FACTOR": 1.2,
+            "OVER_FORECAST_FACTOR": 1.3,
             "NUMERIC_REGRESSORS": [],
             "CATEGORICAL_REGRESSORS": [
                 "SALARY_PERIOD",
@@ -210,7 +210,7 @@ FORECAST_CONFIG = {
         },
         "04| MATURE_03| HIGH": {
             "LOOK_BACK_HORIZON": 60,
-            "OVER_FORECAST_FACTOR": 1.2,
+            "OVER_FORECAST_FACTOR": 1.3,
             "NUMERIC_REGRESSORS": [],
             "CATEGORICAL_REGRESSORS": [
                 "SALARY_PERIOD",

@@ -435,7 +435,7 @@ def plot_product_details_daily_short(
         rows=2, cols=1, 
         shared_xaxes=True,
         vertical_spacing=0.05,
-        row_heights=[0.2, 0.8],
+        row_heights=[0.3, 0.7],
         subplot_titles=("Calendar Effects (Day 0)", "Sales vs Forecast")
     )
     
@@ -543,7 +543,7 @@ def plot_product_details_daily_short(
     fig.update_layout(
         title=f"Daily Sales vs Forecast - Style {style}",
         template=PLOT_TEMPLATE,
-        height=800,
+        height=700,
         width=1400,
         legend=dict(
             orientation="v",
