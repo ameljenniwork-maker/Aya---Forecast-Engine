@@ -14,6 +14,7 @@ from pyspark.sql import SparkSession
 # Local imports
 from functions_library.logger_configuration import setup_logger
 import configuration as CONFIG
+import importlib
 from functions_library.data_validation import validate_configuration
 from functions_library.data_processing import process_data
 from functions_library.forecast_generation import forecast_demand
@@ -67,6 +68,14 @@ def main():
     # Setup logging with run_id
     logger = setup_logger("aya_forecast", log_level, run_id)
     logger.info("Aya Forecast Engine started")
+    
+    # Ensure we are using the latest on-disk configuration and log its origin
+    try:
+        CONFIG = importlib.reload(CONFIG)
+        logger.info(f"[CONFIG FILE] Loaded from: {getattr(CONFIG, '__file__', 'unknown')}")
+        logger.info(f"[CONFIG VALUES] HISTORY_END_DATE={CONFIG.HISTORY_END_DATE}, FORECAST_START_DATE={CONFIG.FORECAST_CONFIG['FORECAST_START_DATE']}")
+    except Exception as e:
+        logger.warning(f"[CONFIG] Could not reload configuration: {e}")
     
     # Initialize Spark session - simple configuration
     spark_start = time.time()
