@@ -183,19 +183,21 @@ def generate_categories(sales_df: DataFrame, products_df: DataFrame) -> DataFram
         logger.debug(f"    [DEBUG] Sales_df count after sales categories: {sales_df.count()}")
         logger.info("    [OK] Sales categories created using simple logic")
         
-        # Create summarized sales categories by concatenating age and sales categories
+        # Create summarized sales categories using high-level grouping
         logger.info("    Creating summarized sales categories...")
         sales_df = sales_df.withColumn(
             "summarized_sales_category",
-            F.concat_ws("_", F.col("age_category"), F.col("sales_category"))
+            F.when(F.col("sales_category").isin(["06| Winning", "07| High Winning"]), "03| HIGH")
+            .when(F.col("sales_category").isin(["05| Medium", "04| Alive"]), "02| MEDIUM")
+            .otherwise("01| LOW")
         )
         logger.info("    [OK] Summarized sales categories created")
         
-        # Create combined age_sales_category
+        # Create combined age_sales_category (age_category + age_category + summarized_sales_category)
         logger.info("    Creating combined age_sales_category...")
         sales_df = sales_df.withColumn(
             "age_sales_category",
-            F.concat(F.col("age_category"), F.lit("_"), F.col("summarized_sales_category"))
+            F.concat_ws("_", F.col("age_category"), F.col("summarized_sales_category"))
         )
         logger.info("    [OK] Combined age_sales_category created")
         
