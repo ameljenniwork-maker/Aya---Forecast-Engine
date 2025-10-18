@@ -50,6 +50,8 @@ def read_data(spark: SparkSession) -> tuple[DataFrame, DataFrame, DataFrame]:
             # sales_movement uses 'day' as the date column
             date_min_max = sales_df.select(F.min("day"), F.max("day")).collect()[0]
             logger.info(f"    [DATE RANGE] Sales data span: {date_min_max[0]} to {date_min_max[1]}")
+            
+            
         except Exception as e:
             logger.warning(f"    [DATE RANGE] Could not compute sales date range: {e}")
         
@@ -116,11 +118,27 @@ def generate_categories(sales_df: DataFrame, products_df: DataFrame) -> DataFram
         logger.debug(f"    [DEBUG] Sales_df count after mapping: {sales_df.count()}")
         logger.info("    [OK] Column mapping completed")
         
-        # Step 2: Create day_in_stock as row number per product
+        # Step 2: Create day_in_stock as days since first selling date per product
         logger.info("    Creating day_in_stock column...")
         logger.debug(f"    [DEBUG] Sales_df count before day_in_stock: {sales_df.count()}")
-        window_spec = Window.partitionBy("product_id").orderBy("date")
-        sales_df = sales_df.withColumn("day_in_stock", F.row_number().over(window_spec))
+        
+        # First, find the first selling date for each product (first date with sales > 0)
+        first_selling_window = Window.partitionBy("product_id")
+        sales_df = sales_df.withColumn(
+            "first_selling_date",
+            F.min(F.when(F.col("sales_units") > 0, F.col("date"))).over(first_selling_window)
+        )
+        
+        # Calculate day_in_stock as days since first selling date
+        sales_df = sales_df.withColumn(
+            "day_in_stock",
+            F.when(F.col("first_selling_date").isNull(), 0)  # Products with no sales
+            .otherwise(F.datediff(F.col("date"), F.col("first_selling_date")) + 1)  # Days since first sale + 1
+        )
+        
+        # Clean up temporary column
+        sales_df = sales_df.drop("first_selling_date")
+        
         logger.debug(f"    [DEBUG] Sales_df count after day_in_stock: {sales_df.count()}")
         logger.info("    [OK] Day in stock calculation completed")
         
@@ -138,13 +156,13 @@ def generate_categories(sales_df: DataFrame, products_df: DataFrame) -> DataFram
         logger.info("    Creating age categories...")
         logger.debug(f"    [DEBUG] Sales_df count before age categories: {sales_df.count()}")
         
-        # Simple age category logic
+        # Simple age category logic - updated for correct day_in_stock calculation
         sales_df = sales_df.withColumn("age_category",
-            F.when(F.col("day_in_stock") == 1, "00| Draft")
-            .when(F.col("day_in_stock") <= 8, "01| New")
-            .when(F.col("day_in_stock") <= 15, "02| Launch")
-            .when(F.col("day_in_stock") <= 31, "03| Growth")
-            .otherwise("04| Mature")
+            F.when(F.col("day_in_stock") == 0, "00| Draft")  # No sales yet
+            .when(F.col("day_in_stock") <= 7, "01| New")     # First week of sales
+            .when(F.col("day_in_stock") <= 14, "02| Launch") # First two weeks of sales
+            .when(F.col("day_in_stock") <= 30, "03| Growth") # First month of sales
+            .otherwise("04| Mature")                          # Beyond first month
         )
         logger.debug(f"    [DEBUG] Sales_df count after age categories: {sales_df.count()}")
         logger.info("    [OK] Age categories created using simple logic")
@@ -157,11 +175,6 @@ def generate_categories(sales_df: DataFrame, products_df: DataFrame) -> DataFram
             "cumulative_sales", F.sum("sales_units").over(cumulative_sales_window)
         )
         
-        first_sales_window = Window.partitionBy("product_id")
-        sales_df = sales_df.withColumn(
-            "first_positive_sales_date",
-            F.min(F.when(F.col("cumulative_sales") > 0, F.col("date"))).over(first_sales_window)
-        )
         logger.debug(f"    [DEBUG] Sales_df count after cumulative sales: {sales_df.count()}")
         logger.info("    [OK] Cumulative sales and first sales date calculated")
         
@@ -169,10 +182,10 @@ def generate_categories(sales_df: DataFrame, products_df: DataFrame) -> DataFram
         logger.info("    Creating sales categories using simple logic...")
         logger.debug(f"    [DEBUG] Sales_df count before sales categories: {sales_df.count()}")
         
-        # Simple sales category logic
+        # Simple sales category logic - updated for correct day_in_stock calculation
         sales_df = sales_df.withColumn("sales_category",
-            F.when(F.col("day_in_stock") == 1, "00| Draft")
-            .when((F.col("day_in_stock") > 1) & (F.col("recent_sales_units") == 0), "01| Dead")
+            F.when(F.col("day_in_stock") == 0, "00| Draft")  # No sales yet
+            .when((F.col("day_in_stock") > 0) & (F.col("recent_sales_units") == 0), "01| Dead")  # Had sales before but no recent sales
             .when(F.col("recent_sales_units") < 14, "02| Very Low")
             .when(F.col("recent_sales_units") < 28, "03| Low")
             .when(F.col("recent_sales_units") < 56, "04| Alive")
@@ -187,9 +200,9 @@ def generate_categories(sales_df: DataFrame, products_df: DataFrame) -> DataFram
         logger.info("    Creating summarized sales categories...")
         sales_df = sales_df.withColumn(
             "summarized_sales_category",
-            F.when(F.col("sales_category").isin(["06| Winning", "07| High Winning"]), "03| HIGH")
-            .when(F.col("sales_category").isin(["05| Medium", "04| Alive"]), "02| MEDIUM")
-            .otherwise("01| LOW")
+            F.when(F.col("sales_category").isin(["06| Winning", "07| High Winning"]), "03| High")
+            .when(F.col("sales_category").isin(["05| Medium", "04| Alive"]), "02| Medium")
+            .otherwise("01| Low")
         )
         logger.info("    [OK] Summarized sales categories created")
         
@@ -201,10 +214,7 @@ def generate_categories(sales_df: DataFrame, products_df: DataFrame) -> DataFram
         )
         logger.info("    [OK] Combined age_sales_category created")
         
-        # Clean up temporary columns
-        logger.info("    Cleaning up temporary columns...")
-        sales_df = sales_df.drop("first_positive_sales_date", "cumulative_sales")
-        logger.info("    [OK] Temporary columns cleaned up")
+
         
         duration = time.time() - start_time
         logger.info(f"[TIMING] generate_categories completed in {duration:.2f} seconds")

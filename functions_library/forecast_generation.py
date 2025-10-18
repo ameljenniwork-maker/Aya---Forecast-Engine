@@ -148,7 +148,9 @@ def filter_non_eligible_categories(processed_data: DataFrame, forecast_start_dat
     
     # Use configured history_end_date directly
     logger.info(f"Using configured history end date: {CONFIG.HISTORY_END_DATE}")
+    
     processed_subset = processed_subset.filter(F.col("date") <= F.lit(CONFIG.HISTORY_END_DATE))
+    
     date_filtering_time = time.time() - date_filtering_start
     logger.info(f"Date filtering: {date_filtering_time:.2f} seconds")
     
@@ -401,11 +403,15 @@ def run_prophet_forecast(qualified_data: DataFrame, params: Dict) -> DataFrame:
     MIN_OBS_FOR_PROPHET = params.get("MIN_OBS_FOR_PROPHET", 8)
     AGE_SALES_CATEGORY_CONFIG = params.get("AGE_SALES_CATEGORY_CONFIG", {})
     
-    # Default configuration
+    
+    # Log the loaded configuration
+    logger.info(f"  [CONFIG] Loaded AGE_SALES_CATEGORY_CONFIG with {len(AGE_SALES_CATEGORY_CONFIG)} categories")
+    for cat, config in AGE_SALES_CATEGORY_CONFIG.items():
+        logger.info(f"  [CONFIG] {cat}: n_changepoints={config.get('n_changepoints', 'NOT_SET')}, changepoint_prior_scale={config.get('changepoint_prior_scale', 'NOT_SET')}")
+    
+    # Default configuration - only used as fallback when no category config exists
     DEFAULT_CONFIG = {
         "LOOK_BACK_HORIZON": 60,
-        "n_changepoints": 1,
-        "changepoint_prior_scale": 0.05,
         "OVER_FORECAST_FACTOR": 1.1,
         "NUMERIC_REGRESSORS": [],
         "CATEGORICAL_REGRESSORS": [],
@@ -434,6 +440,7 @@ def run_prophet_forecast(qualified_data: DataFrame, params: Dict) -> DataFrame:
     # Initialize variables for the current batching approach (to be replaced)
     all_forecasts = []
     batch_size = 5  # Further reduce batch size to avoid Python worker timeouts on Windows
+    
     
     # TODO: Replace this batching approach with parallel processing using mapPartitions
     # Current approach: Sequential processing in batches (SLOW)
@@ -476,7 +483,7 @@ def run_prophet_forecast(qualified_data: DataFrame, params: Dict) -> DataFrame:
         # Step 3: Process each product group in this batch
         processing_start = time.time()
         
-        # Debug: Check available columns
+        
         # Reduced verbosity: skip column listing per batch
         
         # Check for missing required columns
@@ -497,6 +504,8 @@ def run_prophet_forecast(qualified_data: DataFrame, params: Dict) -> DataFrame:
         for product_id, pdf in product_groups:
             product_start_time = time.time()
             processed_products += 1
+            
+            
             # Skip per-product id log
             
             # Log progress every 10 products
@@ -525,12 +534,19 @@ def run_prophet_forecast(qualified_data: DataFrame, params: Dict) -> DataFrame:
             logger.debug(f"    Processing product {product_id}: age={age_cat}, sales={sales_cat}, age_sales={age_sales_cat}, style={style}, records={len(pdf)}")
             
             # Merge defaults with specific config
-            cfg = {**DEFAULT_CONFIG, **AGE_SALES_CATEGORY_CONFIG.get(age_sales_cat, {})}
+            # Get category-specific config, fallback to defaults only for missing keys
+            
+            category_config = AGE_SALES_CATEGORY_CONFIG.get(age_sales_cat, {})
+            cfg = {**DEFAULT_CONFIG, **category_config}
+            
             
             # Regressors for this category
             NUMERIC_REGRESSORS = cfg.get("NUMERIC_REGRESSORS", [])
             CATEGORICAL_REGRESSORS = cfg.get("CATEGORICAL_REGRESSORS", [])
             ALL_REGRESSORS = NUMERIC_REGRESSORS + CATEGORICAL_REGRESSORS
+            
+            # Log configuration being used for this product
+            logger.info(f"    Config for {age_sales_cat}: n_changepoints={cfg.get('n_changepoints', 'NOT_SET')}, changepoint_prior_scale={cfg.get('changepoint_prior_scale', 'NOT_SET')}, LOOK_BACK_HORIZON={cfg.get('LOOK_BACK_HORIZON', 'NOT_SET')}, OVER_FORECAST_FACTOR={cfg.get('OVER_FORECAST_FACTOR', 'NOT_SET')}, REGRESSORS={len(ALL_REGRESSORS)}")
             
             # Training window - exclude forecast start date to avoid data leakage
             train = pdf[pdf['ds'] < pd.to_datetime(FORECAST_START_DATE)].tail(cfg["LOOK_BACK_HORIZON"]).copy()
@@ -598,13 +614,19 @@ def run_prophet_forecast(qualified_data: DataFrame, params: Dict) -> DataFrame:
                 # Skip per-product clean data details
                 
                 # Configure Prophet model (matching working notebook implementation)
+                n_changepoints = cfg.get("n_changepoints", 25)
+                changepoint_prior_scale = cfg.get("changepoint_prior_scale", 0.05)
+                
+                logger.debug(f"    Creating Prophet model with n_changepoints={n_changepoints}, changepoint_prior_scale={changepoint_prior_scale}")
+                
                 model = Prophet(
                     growth="linear",
                     seasonality_mode="multiplicative",
                     daily_seasonality=False,
                     interval_width=0.80,
                     uncertainty_samples=0,  # Disable uncertainty sampling to avoid broadcasting issues
-                    changepoint_prior_scale=cfg.get("changepoint_prior_scale", 0.05)
+                    n_changepoints=n_changepoints,  # Use configured n_changepoints
+                    changepoint_prior_scale=changepoint_prior_scale
                 )
                 
                 # Add regressors

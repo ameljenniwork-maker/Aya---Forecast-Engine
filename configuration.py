@@ -41,7 +41,7 @@ TABLES = {
 # =============================================================================
 # Date ranges for data processing
 HISTORY_START_DATE = "2025-04-21"  # Start of sales data
-HISTORY_END_DATE = "2025-10-13"    # End of historical data (actual data availability)
+HISTORY_END_DATE = "2025-10-16"    # End of historical data (actual data availability)
 # Compute forecast start date as the day after HISTORY_END_DATE (keep as string)
 _history_end_dt = datetime.strptime(HISTORY_END_DATE, "%Y-%m-%d").date()
 FORECAST_START_DATE = (_history_end_dt + timedelta(days=1)).strftime("%Y-%m-%d")
@@ -56,36 +56,36 @@ SALARY_END_DATE = 4     # 4th of next month
 RECENT_SALES_UNITS_WINDOW = 14
 # Sales category configuration - simple multipliers based on RECENT_SALES_UNITS_WINDOW
 # Categories are assigned based on recent_sales_units (sum of sales over the window period)
-SALES_CATEGORY_MULTIPLIERS = {
-    "00| Draft": 0,          # Before first sales (day_in_stock = 0 or no sales yet)
-    "01| Dead": 0,           # <= 0 sales (no recent sales)
-    "02| Very Low": 1,       # < 1 * RECENT_SALES_UNITS_WINDOW (e.g., < 14 sales)
-    "03| Low": 2,            # < 2 * RECENT_SALES_UNITS_WINDOW (e.g., < 28 sales)
-    "04| Alive": 4,          # < 4 * RECENT_SALES_UNITS_WINDOW (e.g., < 56 sales)
-    "05| Medium": 6,         # < 6 * RECENT_SALES_UNITS_WINDOW (e.g., < 84 sales)
-    "06| Winning": 10,       # < 10 * RECENT_SALES_UNITS_WINDOW (e.g., < 140 sales)
-    "07| High Winning": float('inf')  # >= 10 * RECENT_SALES_UNITS_WINDOW (e.g., >= 140 sales)
-}
+# SALES_CATEGORY_MULTIPLIERS = {
+#     "00| raft": 0,          # Before first sales (day_in_stock = 0 or no sales yet)
+#     "01| Dead": 0,           # <= 0 sales (no recent sales)
+#     "02| Very Low": 1,       # < 1 * RECENT_SALES_UNITS_WINDOW (e.g., < 14 sales)
+#     "03| Low": 2,            # < 2 * RECENT_SALES_UNITS_WINDOW (e.g., < 28 sales)
+#     "04| Alive": 4,          # < 4 * RECENT_SALES_UNITS_WINDOW (e.g., < 56 sales)
+#     "05| Medium": 6,         # < 6 * RECENT_SALES_UNITS_WINDOW (e.g., < 84 sales)
+#     "06| Winning": 10,       # < 10 * RECENT_SALES_UNITS_WINDOW (e.g., < 140 sales)
+#     "07| High Winning": float('inf')  # >= 10 * RECENT_SALES_UNITS_WINDOW (e.g., >= 140 sales)
+# }
 
 
-# Age category configuration - simple day ranges based on day_in_stock
-# Categories are assigned based on how many days the product has been in stock
-AGE_CATEGORY_DAYS = {
-    "00| Draft": 0,          # Before first sales (day_in_stock = 0 or no sales yet)
-    "01| New": 7,            # <= 7 days in stock
-    "02| Launch": 14,        # <= 14 days in stock
-    "03| Growth": 30,        # <= 30 days in stock
-    "04| Mature": float('inf')  # > 30 days in stock
-}
+# # Age category configuration - simple day ranges based on day_in_stock
+# # Categories are assigned based on how many days the product has been in stock
+# AGE_CATEGORY_DAYS = {
+#     "00| Draft": 0,          # Before first sales (day_in_stock = 0 or no sales yet)
+#     "01| New": 7,            # <= 7 days in stock
+#     "02| Launch": 14,        # <= 14 days in stock
+#     "03| Growth": 30,        # <= 30 days in stock
+#     "04| Mature": float('inf')  # > 30 days in stock
+# }
 
 
 
-# Sales category summarization
-SALES_CATEGORY_SUMMARY = {
-    "01| Low": ["01| Dead", "02| Very Low", "03| Low"],
-    "02| Medium": ["04| Alive", "05| Medium"],
-    "03| High": ["06| Winning", "07| High Winning"]
-}
+# # Sales category summarization
+# SALES_CATEGORY_SUMMARY = {
+#     "01| Low": ["01| Dead", "02| Very Low", "03| Low"],
+#     "02| Medium": ["04| Alive", "05| Medium"],
+#     "03| High": ["06| Winning", "07| High Winning"]
+# }
 
 
 # =============================================================================
@@ -111,41 +111,45 @@ NON_ELIGIBLE_CATEGORIES = {
 
 FORECAST_CONFIG = {
     "FORECAST_START_DATE": FORECAST_START_DATE,  # Automatically calculated as HISTORY_END_DATE + 1
-    "FORECAST_HORIZON": 7,
+    "FORECAST_HORIZON": 14,
     "MIN_OBS_FOR_PROPHET": 8,
     "CORSTON_ZEROS_RATIO": 0.6,  # Threshold for using Croston method instead of Prophet
     "AGE_SALES_CATEGORY_CONFIG": {
         # --- LAUNCH --- 7-14 days
-        "02| LAUNCH_01| LOW": {
+        "02| Launch_01| Low": {
             "LOOK_BACK_HORIZON": 10,
             "OVER_FORECAST_FACTOR": 1.0,
             "NUMERIC_REGRESSORS": [],
             "CATEGORICAL_REGRESSORS": [],
-            "changepoint_prior_scale": 0.001
+            "n_changepoints": 1,
+            "changepoint_prior_scale": 0.01
         },
-        "02| LAUNCH_02| MEDIUM": {
+        "02| Launch_02| Medium": {
             "LOOK_BACK_HORIZON": 10,
             "OVER_FORECAST_FACTOR": 1.15,
             "NUMERIC_REGRESSORS": [],
             "CATEGORICAL_REGRESSORS": [],
-            "changepoint_prior_scale": 0.08
+            "n_changepoints": 2,
+            "changepoint_prior_scale": 0.05
         },
-        "02| LAUNCH_03| HIGH": {
+        "02| Launch_03| High": {
             "LOOK_BACK_HORIZON": 7,
             "OVER_FORECAST_FACTOR": 1.2,
             "NUMERIC_REGRESSORS": [],
             "CATEGORICAL_REGRESSORS": [],
+            "n_changepoints": 1,
             "changepoint_prior_scale": 0.1
         },
         # --- GROWTH ---
-        "03| GROWTH_01| LOW": {
+        "03| Growth_01| Low": {
             "LOOK_BACK_HORIZON": 10,
             "OVER_FORECAST_FACTOR": 1.0,
             "NUMERIC_REGRESSORS": [],
             "CATEGORICAL_REGRESSORS": [],
-            "changepoint_prior_scale": 0.001
+            "n_changepoints": 2,
+            "changepoint_prior_scale": 0.01
         },
-        "03| GROWTH_02| MEDIUM": {
+        "03| Growth_02| Medium": {
             "LOOK_BACK_HORIZON": 30,
             "OVER_FORECAST_FACTOR": 1.3,
             "NUMERIC_REGRESSORS": [],
@@ -158,45 +162,14 @@ FORECAST_CONFIG = {
                 "ARAFAT_DAY_DAY_0",
                 "WHITE_FRIDAY_DAY_0"
             ],
-            "changepoint_prior_scale": 0.1
+            "n_changepoints": 3,
+            "changepoint_prior_scale": 0.05
         },
-        "03| GROWTH_03| HIGH": {
+        "03| Growth_03| High": {
             "LOOK_BACK_HORIZON": 30,
             "OVER_FORECAST_FACTOR": 1.3,
             "NUMERIC_REGRESSORS": [],
             "CATEGORICAL_REGRESSORS": [
-                "EID_ADHA_DAY_0", "EID_ADHA_DAY_PLUS_1",
-                "EID_FITR_DAY_0", "EID_FITR_DAY_MINUS_1",
-                "ISLAMIC_NEW_YEAR_DAY_0", "ISLAMIC_NEW_YEAR_DAY_PLUS_1",
-                "BLACK_FRIDAY_DAY_0",
-                "NATIONAL_DAY_DAY_0",
-                "ARAFAT_DAY_DAY_0",
-                "WHITE_FRIDAY_DAY_0"
-            ],
-            "changepoint_prior_scale": 0.2
-        },
-        # --- MATURE ---
-        "04| MATURE_01| LOW": {
-            "LOOK_BACK_HORIZON": 60,
-            "OVER_FORECAST_FACTOR": 1.0,
-            "NUMERIC_REGRESSORS": [],
-            "CATEGORICAL_REGRESSORS": [
-                "EID_ADHA_DAY_0", "EID_ADHA_DAY_PLUS_1",
-                "EID_FITR_DAY_0", "EID_FITR_DAY_MINUS_1",
-                "ISLAMIC_NEW_YEAR_DAY_0", "ISLAMIC_NEW_YEAR_DAY_PLUS_1",
-                "BLACK_FRIDAY_DAY_0",
-                "NATIONAL_DAY_DAY_0",
-                "ARAFAT_DAY_DAY_0",
-                "WHITE_FRIDAY_DAY_0"
-            ],
-            "changepoint_prior_scale": 0.005
-        },
-        "04| MATURE_02| MEDIUM": {
-            "LOOK_BACK_HORIZON": 60,
-            "OVER_FORECAST_FACTOR": 1.3,
-            "NUMERIC_REGRESSORS": [],
-            "CATEGORICAL_REGRESSORS": [
-                "SALARY_PERIOD",
                 "EID_ADHA_DAY_0", "EID_ADHA_DAY_PLUS_1",
                 "EID_FITR_DAY_0", "EID_FITR_DAY_MINUS_1",
                 "ISLAMIC_NEW_YEAR_DAY_0", "ISLAMIC_NEW_YEAR_DAY_PLUS_1",
@@ -206,9 +179,26 @@ FORECAST_CONFIG = {
                 "WHITE_FRIDAY_DAY_0"
             ],
             "n_changepoints": 4,
-            "changepoint_prior_scale": 0.15
+            "changepoint_prior_scale": 0.1
         },
-        "04| MATURE_03| HIGH": {
+        # --- MATURE ---
+        "04| Mature_01| Low": {
+            "LOOK_BACK_HORIZON": 60,
+            "OVER_FORECAST_FACTOR": 1.0,
+            "NUMERIC_REGRESSORS": [],
+            "CATEGORICAL_REGRESSORS": [
+                "EID_ADHA_DAY_0", "EID_ADHA_DAY_PLUS_1",
+                "EID_FITR_DAY_0", "EID_FITR_DAY_MINUS_1",
+                "ISLAMIC_NEW_YEAR_DAY_0", "ISLAMIC_NEW_YEAR_DAY_PLUS_1",
+                "BLACK_FRIDAY_DAY_0",
+                "NATIONAL_DAY_DAY_0",
+                "ARAFAT_DAY_DAY_0",
+                "WHITE_FRIDAY_DAY_0"
+            ],
+            "n_changepoints": 4,
+            "changepoint_prior_scale": 0.01
+        },
+        "04| Mature_02| Medium": {
             "LOOK_BACK_HORIZON": 60,
             "OVER_FORECAST_FACTOR": 1.3,
             "NUMERIC_REGRESSORS": [],
@@ -222,7 +212,25 @@ FORECAST_CONFIG = {
                 "ARAFAT_DAY_DAY_0",
                 "WHITE_FRIDAY_DAY_0"
             ],
-            "changepoint_prior_scale": 0.2
+            "n_changepoints": 6,
+            "changepoint_prior_scale": 0.05
+        },
+        "04| Mature_03| High": {
+            "LOOK_BACK_HORIZON": 60,
+            "OVER_FORECAST_FACTOR": 1.3,
+            "NUMERIC_REGRESSORS": [],
+            "CATEGORICAL_REGRESSORS": [
+                "SALARY_PERIOD",
+                "EID_ADHA_DAY_0", "EID_ADHA_DAY_PLUS_1",
+                "EID_FITR_DAY_0", "EID_FITR_DAY_MINUS_1",
+                "ISLAMIC_NEW_YEAR_DAY_0", "ISLAMIC_NEW_YEAR_DAY_PLUS_1",
+                "BLACK_FRIDAY_DAY_0",
+                "NATIONAL_DAY_DAY_0",
+                "ARAFAT_DAY_DAY_0",
+                "WHITE_FRIDAY_DAY_0"
+            ],
+            "n_changepoints": 8,
+            "changepoint_prior_scale": 0.1
         }
     }
 }
